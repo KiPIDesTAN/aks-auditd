@@ -17,6 +17,7 @@ jobs:
         with:
            work-dir: src
            go-version-file: src/go.mod
+           cache: false
   
   build_job:
     name: Build and Test Docker Image
