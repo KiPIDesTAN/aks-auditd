@@ -53,6 +53,7 @@ jobs:
         with: 
           platforms: linux/amd64
           load: true
+          push: false
           tags: ${{ env.REGISTRY }}/${{ env.REPO_NAME }}:${{ env.TEST_TAG }}
       - name: Run Trivy Vulnerability Scanner
         uses: aquasecurity/trivy-action@0.20.0
