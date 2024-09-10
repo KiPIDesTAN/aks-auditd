@@ -85,9 +85,13 @@ jobs:
           format: 'table'
 
       - name: Build and push
+        id: push-step
         uses: docker/build-push-action@v6
         with:
           platforms: linux/amd64
           push: true
           tags: ${{ env.REGISTRY }}/${{ env.REPO_NAME }}:${{ github.sha }}
+
+      - name: Sign the container image
+        run: cosign sign ${{ env.REGISTRY }}/${{ env.REPO_NAME }}:@${{ steps.push-step.outputs.digest }}
   
