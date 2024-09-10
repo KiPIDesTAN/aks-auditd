@@ -4,7 +4,7 @@ WORKDIR /app
 
 # Copy source code
 COPY src/*.go ./
-COPY get_golang.sh ./
+COPY scripts/get_golang.sh ./
 
 # Copy example config file
 RUN mkdir -p /etc/aks-auditd
