@@ -7,6 +7,7 @@ on:
 env:
   # Use docker.io for Docker Hub if empty
   REGISTRY: ghcr.io
+  TEST_TAG: test  # Tag for testing the image
 
 jobs:
   govulncheck_job:
@@ -52,11 +53,11 @@ jobs:
         with: 
           platforms: linux/amd64
           load: true
-          tags: ${{ env.REGISTRY }}/${{ env.REPO_NAME }}:${{ github.sha }}
+          tags: ${{ env.REGISTRY }}/${{ env.REPO_NAME }}:${{ env.TEST_TAG }}
       - name: Run Trivy Vulnerability Scanner
         uses: aquasecurity/trivy-action@0.20.0
         with:
-          image-ref: '${{ env.REGISTRY }}/${{ env.REPO_NAME }}:${{ github.sha }}'
+          image-ref: '${{ env.REGISTRY }}/${{ env.REPO_NAME }}:${{ env.TEST_TAG }}'
           format: 'table'
       - name: Build and push
         uses: docker/build-push-action@v6
