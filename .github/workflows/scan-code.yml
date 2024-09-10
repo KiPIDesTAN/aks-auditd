@@ -23,11 +23,6 @@ jobs:
     needs: govulncheck_job
     runs-on: ubuntu-latest
     steps:
-      - name: Dump github context
-        run:   echo "$GITHUB_CONTEXT"
-        shell: bash
-        env:
-          GITHUB_CONTEXT: ${{ toJson(github) }}
       - name: Checkout repository
         uses: actions/checkout@v3
       - name: Set up QEMU

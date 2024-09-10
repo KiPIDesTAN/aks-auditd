@@ -84,7 +84,7 @@ func main() {
 
 	level, ok := levelMap[strings.ToLower(viper.GetString("logLevel"))]
 	if !ok {
-		log.Warn(fmt.Sprintf("Invalid log level: %s. Falling back to info level logging.", viper.GetString("logLevel")))
+		log.Warn(fmt.Sprintf("Invalid log level: %s. Falling back to 'info' level logging.", viper.GetString("logLevel")))
 		level = log.InfoLevel
 	}
 	log.Info("Log Level: ", viper.GetString("logLevel"))
