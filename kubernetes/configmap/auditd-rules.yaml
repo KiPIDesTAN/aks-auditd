@@ -1,0 +1,48 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: auditd-rules
+  namespace: kube-system
+  labels:
+    name: aks-auditd
+data:
+  audit.rules: |
+    ## First rule - delete all
+    -D
+    ## Increase the buffers to survive stress events.
+    ## Make this bigger for busy systems
+    -b 8192
+    ## This determine how long to wait in burst of events
+    --backlog_wait_time 60000
+    ## Set failure mode to syslog
+    -f 1
+  11-audit.rules: |
+    -a exit,always -F arch=b64 -C auid!=euid -F auid!=unset -S execve
+    -a exit,always -F arch=b32 -C auid!=euid -F auid!=unset -S execve
+  20-audit-tools.rules: |
+    # Self Auditing ---------------------------------------------------------------
+
+    ## Audit the audit logs
+    ### Successful and unsuccessful attempts to read information from the audit records
+    -w /var/log/audit/ -p wra -k auditlog
+    -w /var/audit/ -p wra -k auditlog
+
+    ## Auditd configuration
+    ### Modifications to audit configuration that occur while the audit collection functions are operating
+    -w /etc/audit/ -p wa -k auditconfig
+    -w /etc/libaudit.conf -p wa -k auditconfig
+    -w /etc/audisp/ -p wa -k audispconfig
+
+    ## Monitor for use of audit management tools
+    -w /sbin/auditctl -p x -k audittools
+    -w /sbin/auditd -p x -k audittools
+    -w /usr/sbin/auditd -p x -k audittools
+    -w /usr/sbin/augenrules -p x -k audittools
+
+    ## Access to all audit trails
+
+    -a always,exit -F path=/usr/sbin/ausearch -F perm=x -k audittools
+    -a always,exit -F path=/usr/sbin/aureport -F perm=x -k audittools
+    -a always,exit -F path=/usr/sbin/aulast -F perm=x -k audittools
+    -a always,exit -F path=/usr/sbin/aulastlogin -F perm=x -k audittools
+    -a always,exit -F path=/usr/sbin/auvirt -F perm=x -k audittools

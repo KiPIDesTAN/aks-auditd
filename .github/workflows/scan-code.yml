@@ -1,0 +1,74 @@
+name: CodeScan
+
+# This workflow uses actions that are not certified by GitHub.
+# They are provided by a third-party and are governed by
+# separate terms of service, privacy policy, and support
+# documentation.
+
+on: [push]
+
+jobs:
+  govulncheck_job:
+    runs-on: ubuntu-latest
+    name: Run govulncheck
+    steps:
+      - id: govulncheck
+        uses: golang/govulncheck-action@v1
+        with:
+           work-dir: image/src
+           go-version-file: image/src/go.mod
+  
+  build_job:
+    name: Build and Test Docker Image
+    needs: govulncheck_job
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dump github context
+        run:   echo "$GITHUB_CONTEXT"
+        shell: bash
+        env:
+          GITHUB_CONTEXT: ${{ toJson(github) }}
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      # - name: Extract Docker metadata
+      #   id: meta
+      #   uses: docker/metadata-action@v5
+      #   with:
+      #     images: ghcr.io/${{ github.repository }}:latest
+      - name: Clean Repository Name
+        id: toLowerCase
+        run: echo "REPO_NAME=${REPO_NAME,,}" >> "${GITHUB_ENV}"
+        env:
+          REPO_NAME: ${{ github.repository }}
+      - name: Build Image
+        uses: docker/build-push-action@v6
+        with: 
+          context: ./image
+          file: ./image/Dockerfile
+          platforms: linux/amd64
+          load: true
+          tags: ghcr.io/${{ env.REPO_NAME }}:${{ github.sha }}
+      - name: Run Trivy Vulnerability Scanner
+        uses: aquasecurity/trivy-action@0.20.0
+        with:
+          image-ref: 'ghcr.io/${{ env.REPO_NAME }}:${{ github.sha }}'
+          format: 'table'
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: ./image
+          file: ./image/Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: ghcr.io/${{ env.REPO_NAME }}:${{ github.sha }}
+  

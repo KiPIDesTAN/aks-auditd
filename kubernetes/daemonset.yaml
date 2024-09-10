@@ -1,0 +1,47 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: aks-auditd
+  namespace: kube-system
+  labels:
+    name: aks-auditd
+spec:
+  selector:
+    matchLabels:
+      name: aks-auditd
+  template:
+    metadata:
+      labels:
+        name: aks-auditd
+    spec:
+      hostPID: true
+      containers:
+      - name: aks-auditd
+        image: myacr.azurecr.io/aksauditd
+        command: ["/app/aks-auditd"]
+        volumeMounts:
+        - name: node
+          mountPath: /node
+          readOnly: false
+        - name: auditd-rules
+          mountPath: /auditd-rules
+        - name: audisp-plugins
+          mountPath: /audisp-plugins
+        imagePullPolicy: Always
+        securityContext:
+          privileged: true
+      volumes:
+      - name: node
+        hostPath:
+          path: /
+      - name: auditd-rules
+        configMap:
+          name: auditd-rules
+      - name: audisp-plugins
+        configMap:
+          name: audisp-plugins
+    
+      
+
+  
+
