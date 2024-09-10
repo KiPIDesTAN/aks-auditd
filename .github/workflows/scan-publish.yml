@@ -93,5 +93,5 @@ jobs:
           tags: ${{ env.REGISTRY }}/${{ env.REPO_NAME }}:${{ github.sha }}
 
       - name: Sign the container image
-        run: cosign sign -y ${{ env.REGISTRY }}/${{ env.REPO_NAME }}:@${{ steps.push-step.outputs.digest }}
+        run: cosign sign -y ${{ env.REGISTRY }}/${{ env.REPO_NAME }}:${{ github.sha }}@${{ steps.push-step.outputs.digest }}
   
