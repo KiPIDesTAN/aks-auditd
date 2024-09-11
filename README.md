@@ -42,12 +42,6 @@ IMAGE_NAME=aksauditd
 IMAGE_TAG=<image_tag>
 ```
 
-Change to the image directory from the project root
-
-```console
-cd image
-```
-
 Login to your ACR
 
 ```console

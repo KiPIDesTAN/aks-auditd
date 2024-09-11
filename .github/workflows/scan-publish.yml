@@ -90,6 +90,7 @@ jobs:
         with:
           platforms: linux/amd64
           push: true
+          sbom: true
           tags: |
             ${{ env.REGISTRY }}/${{ env.REPO_NAME }}:${{ github.sha }}
             ${{ env.REGISTRY }}/${{ env.REPO_NAME }}:latest
