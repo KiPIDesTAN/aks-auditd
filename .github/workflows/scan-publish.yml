@@ -71,18 +71,18 @@ jobs:
         env:
           REPO_NAME: ${{ github.repository }}
 
-      # - name: Build Image
-      #   uses: docker/build-push-action@v6
-      #   with: 
-      #     load: true
-      #     push: false
-      #     tags: ${{ env.REGISTRY }}/${{ env.REPO_NAME }}:${{ env.TEST_TAG }}
+      - name: Build Image
+        uses: docker/build-push-action@v6
+        with: 
+          load: true
+          push: false
+          tags: ${{ env.REGISTRY }}/${{ env.REPO_NAME }}:${{ env.TEST_TAG }}
 
-      # - name: Run Trivy Vulnerability Scanner
-      #   uses: aquasecurity/trivy-action@0.20.0
-      #   with:
-      #     image-ref: '${{ env.REGISTRY }}/${{ env.REPO_NAME }}:${{ env.TEST_TAG }}'
-      #     format: 'table'
+      - name: Run Trivy Vulnerability Scanner
+        uses: aquasecurity/trivy-action@0.20.0
+        with:
+          image-ref: '${{ env.REGISTRY }}/${{ env.REPO_NAME }}:${{ env.TEST_TAG }}'
+          format: 'table'
 
       - name: Build and push
         id: push-step
@@ -90,11 +90,13 @@ jobs:
         with:
           platforms: linux/amd64
           push: true
-          tags: ${{ env.REGISTRY }}/${{ env.REPO_NAME }}:${{ github.sha }}
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.REPO_NAME }}:${{ github.sha }}
+            ${{ env.REGISTRY }}/${{ env.REPO_NAME }}:latest
 
       - name: Print cosign version
         run: cosign version
 
       - name: Sign the container image
-        run: cosign sign -y ${{ env.REGISTRY }}/${{ env.REPO_NAME }}:${{ github.sha }}@${{ steps.push-step.outputs.digest }}
+        run: cosign sign -y ${{ env.REGISTRY }}/${{ env.REPO_NAME }}:${{ github.sha }}@${{ steps.push-step.outputs.digest }} ${{ env.REGISTRY }}/${{ env.REPO_NAME }}:latest@${{ steps.push-step.outputs.digest }}
   

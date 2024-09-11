@@ -8,63 +8,11 @@ aks-auditd is an implementation of auditd for Azure Kuberentes Service worker no
 
 A deployable end-to-end demo is available in the [demo](./demo/README.md) folder.
 
-## Configuration
+## Pre-built Container Image
 
-The following values can be configured via environment variable or ConfigMap. The order of precedence is the following:
-
-1. Environment variable
-2. ConfigMap value
-3. Default value
-
-| Item |  Environment Variable | Config File Value | Default | Notes |
-|---|---|---|---|--|
-| Log Level |  AA_LOG_LEVEL | logLevel | 'info' | Valid values: panic, fatal, error, warn, info, debug, trace |
-| Poll Interval | AA_POLL_INTERVAL | pollInterval | 30s | Interval to poll for rule/config file changes. Value must meet [ParseDuration](https://pkg.go.dev/time#ParseDuration) format requirements. e.g. 30s, 20m, 1h |
-| Rules Directory | AA_RULES_DIR | rulesDirectory | /etc/audit/rules.d | Worker node directory where auditd rules exist. |
-| Plugins Directory | AA_PLUGINS_DIR | pluginsDirectory | /etc/audit/plugins.d | Worker directory node where auditispd-plugins exist. |
-
-### Configuration via ConfigMap
-
-An example of the config.yaml ConfigMap to configure the Go binary is below or [here](./image/config.yaml). Once you've created your own ConfigMap, you will want to apply it on the container to "/etc/aks-auditd/config.yaml" as part of your [daemonset.yaml](./kubernetes/daemonset.yaml) deployment.
-
-## Sequence Diagrams
-
-Below is a sequence diagram of how the Go binary interacts with the worker node.
-
-```mermaid
-sequenceDiagram
-  participant aksauditd as aks-auditd DaemonSet
-  participant workernode
-  participant auditd
-  aksauditd->>workernode: Deploy auditd, audispd-plugins
-  aksauditd->>auditd: Start Service
-  loop User Defined Interval
-      aksauditd->>aksauditd: Check for updated rules/configs
-    opt File Changed
-      aksauditd->>workernode: Copy updated rules/configs
-      aksauditd->>auditd: Restart Service
-    end 
-  end
-```
-
-Below is a flow chart for the flow of kernel audit data to a Log Analytics Workspace.
-
-```mermaid
-flowchart LR
-  kernel[Linux Kernel]
-  audit[auditd Service]
-  syslog[Syslog]  
-  ci[Container Insights POD]
-  law[Log Analytics Workspace]
-  kernel-->audit
-  audit-->syslog
-  syslog-->ci
-  ci-->law
-```
+You can get the latest version of the docker image 
 
 ## Build and Deploy
-
-I have not yet had a chance to push a Docker image that's consumable, so you will need to do this on your own. However, it is straight forward to build the image.
 
 The build process utilizes a multi-stage build, pulling the Azure Linux core image, compiling the Go binary, and copying the required artifacts to the Azure Linux Distroless minimal image of the same version. View the process [here](./image/Dockerfile).
 
@@ -108,6 +56,60 @@ docker push $ACR_URL/$IMAGE_NAME:$IMAGE_TAG
 ```
 
 Once built, you can deploy the image. See an example of the deployment file at <project_root>/kubernetes/daemonset.yaml. 
+
+## Configuration
+
+The following values can be configured via environment variable or ConfigMap. The order of precedence is the following:
+
+1. Environment variable
+2. ConfigMap value
+3. Default value
+
+| Item |  Environment Variable | Config File Value | Default | Notes |
+|---|---|---|---|--|
+| Log Level |  AA_LOG_LEVEL | logLevel | 'info' | Valid values: panic, fatal, error, warn, info, debug, trace |
+| Poll Interval | AA_POLL_INTERVAL | pollInterval | 30s | Interval to poll for rule/config file changes. Value must meet [ParseDuration](https://pkg.go.dev/time#ParseDuration) format requirements. e.g. 30s, 20m, 1h |
+| Rules Directory | AA_RULES_DIR | rulesDirectory | /etc/audit/rules.d | Worker node directory where auditd rules exist. |
+| Plugins Directory | AA_PLUGINS_DIR | pluginsDirectory | /etc/audit/plugins.d | Worker directory node where auditispd-plugins exist. |
+
+### Configuration via ConfigMap
+
+An example of the config.yaml ConfigMap to configure the Go binary is below or [here](./config.yaml). Once you've created your own ConfigMap, you will want to apply it on the container to "/etc/aks-auditd/config.yaml" as part of your [daemonset.yaml](./kubernetes/daemonset.yaml) deployment.
+
+## Sequence Diagrams
+
+Below is a sequence diagram of how the Go binary interacts with the worker node.
+
+```mermaid
+sequenceDiagram
+  participant aksauditd as aks-auditd DaemonSet
+  participant workernode
+  participant auditd
+  aksauditd->>workernode: Deploy auditd, audispd-plugins
+  aksauditd->>auditd: Start Service
+  loop User Defined Interval
+      aksauditd->>aksauditd: Check for updated rules/configs
+    opt File Changed
+      aksauditd->>workernode: Copy updated rules/configs
+      aksauditd->>auditd: Restart Service
+    end 
+  end
+```
+
+Below is a flow chart for the flow of kernel audit data to a Log Analytics Workspace.
+
+```mermaid
+flowchart LR
+  kernel[Linux Kernel]
+  audit[auditd Service]
+  syslog[Syslog]  
+  ci[Container Insights POD]
+  law[Log Analytics Workspace]
+  kernel-->audit
+  audit-->syslog
+  syslog-->ci
+  ci-->law
+```
 
 ## FAQ
 
