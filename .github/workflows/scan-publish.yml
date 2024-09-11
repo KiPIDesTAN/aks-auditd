@@ -91,7 +91,7 @@ jobs:
           platforms: linux/amd64
           push: true
           sbom: true
-          provenance: mode=max
+          labels: ${{ steps.meta.outputs.labels }}
           tags: |
             ${{ env.REGISTRY }}/${{ env.REPO_NAME }}:${{ github.sha }}
             ${{ env.REGISTRY }}/${{ env.REPO_NAME }}:latest
