@@ -15,15 +15,29 @@ You can pull the latest container with the command below or check-out the [aks-a
 ```console
 docker pull ghcr.io/kipidestan/aks-auditd:latest
 ```
+### Image Verification
 
-Published images are signed with [cosign](https://github.com/sigstore/cosign) keyless signing. Use the command below to verify the image signature. 
+Published images are signed with [cosign](https://github.com/sigstore/cosign) keyless signing and a Software Bill of Materials.
+
+#### Cosign Verification
+
+Use the command below to verify the image signature. 
 
 NOTE: The value of certificate identity is case-sensitive. If "KiPIDesTAN" is not written correctly, the verification will fail.
 
 ```console
 cosign verify ghcr.io/kipidestan/aks-auditd:latest \
-  --certificate-identity="https://github.com/KiPIDesTAN/aks-auditd/.github/workflows/scan-publish.yml@refs/heads/ama" \
+  --certificate-identity="https://github.com/KiPIDesTAN/aks-auditd/.github/workflows/scan-publish.yml@refs/heads/main" \
   --certificate-oidc-issuer="https://token.actions.githubusercontent.com" | jq
+```
+
+#### Software Bill of Materials
+
+The Software Bill of Materials (SBOM) requires the [Docker SBOM cli plugin](https://github.com/docker/sbom-cli-plugin). Once installed, pull the image and run the command below:
+
+```console
+docker pull aks-auditd:latest
+docker sbom aks-auditd:latest
 ```
 
 ## Build and Deploy
