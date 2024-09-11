@@ -26,7 +26,7 @@ RUN go mod init aksauditd \
 FROM mcr.microsoft.com/azurelinux/distroless/minimal:3.0 AS final
 
 LABEL org.opencontainers.image.source=https://github.com/KiPIDesTAN/aks-auditd
-LABEL org.opencontainers.image.description=Auditd for Azure Kubernetes Service
+LABEL org.opencontainers.image.description="Auditd for Azure Kubernetes Service"
 LABEL org.opencontainers.image.licenses=GPLv3
 
 WORKDIR /app
