@@ -10,7 +10,21 @@ A deployable end-to-end demo is available in the [demo](./demo/README.md) folder
 
 ## Pre-built Container Image
 
-You can get the latest version of the docker image 
+You can pull the latest container with the command below or check-out the [aks-auditd packages](https://github.com/KiPIDesTAN/aks-auditd/pkgs/container/aks-auditd) for a specific version.
+
+```console
+docker pull ghcr.io/kipidestan/aks-auditd:latest
+```
+
+Published images are signed with [cosign](https://github.com/sigstore/cosign) keyless signing. Use the command below to verify the image signature. 
+
+NOTE: The value of certificate identity is case-sensitive. If "KiPIDesTAN" is not written correctly, the verification will fail.
+
+```console
+cosign verify ghcr.io/kipidestan/aks-auditd:latest \
+  --certificate-identity="https://github.com/KiPIDesTAN/aks-auditd/.github/workflows/scan-publish.yml@refs/heads/ama" \
+  --certificate-oidc-issuer="https://token.actions.githubusercontent.com" | jq
+```
 
 ## Build and Deploy
 
