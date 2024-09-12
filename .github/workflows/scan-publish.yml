@@ -57,18 +57,17 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Extract Docker metadata
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.REPO_NAME }}
-
-
       - name: Clean Repository Name
         id: toLowerCase
         run: echo "REPO_NAME=${REPO_NAME,,}" >> "${GITHUB_ENV}"
         env:
           REPO_NAME: ${{ github.repository }}
+
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.REPO_NAME }}
 
       - name: Build Image
         uses: docker/build-push-action@v6
