@@ -88,13 +88,12 @@ jobs:
           format: 'table'
 
       - name: Build and push
-        if: ${{ github.event_name != 'pull_request' }}
         id: push-step
         uses: docker/build-push-action@v6
         with:
           context: .
           platforms: linux/amd64
-          push: false
+          push: ${{ github.event_name != 'pull_request' }}
           sbom: true
           labels: ${{ steps.meta.outputs.labels }}
           tags: ${{ steps.meta.outputs.tags }}
