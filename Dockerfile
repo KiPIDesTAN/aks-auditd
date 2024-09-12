@@ -1,6 +1,6 @@
 ARG BUILDKIT_SBOM_SCAN_CONTEXT=true
+ARG BUILDKIT_SBOM_SCAN_STAGE=base,final
 FROM mcr.microsoft.com/azurelinux/base/core:3.0 AS base
-ARG BUILDKIT_SBOM_SCAN_STAGE=true
 
 WORKDIR /app
 
