@@ -5,8 +5,8 @@ on:
     branches: [ main ]
     # Publish semver tags as releases.
     tags: [ 'v*.*.*' ]
-#   pull_request:
-#     branches: [ main ]
+  pull_request:
+      branches: [ main ]
 
 
 env:
@@ -41,6 +41,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install Cosign
+        if: ${{ github.event_name != 'pull_request' }}
         uses: sigstore/cosign-installer@v3.6.0
 
       - name: Set up QEMU
@@ -56,17 +57,22 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Extract Docker metadata
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.REPO_NAME }}:${{ github.sha }}
-
       - name: Clean Repository Name
         id: toLowerCase
         run: echo "REPO_NAME=${REPO_NAME,,}" >> "${GITHUB_ENV}"
         env:
           REPO_NAME: ${{ github.repository }}
+
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.REPO_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
 
       - name: Build Image
         uses: docker/build-push-action@v6
@@ -85,17 +91,18 @@ jobs:
         id: push-step
         uses: docker/build-push-action@v6
         with:
+          context: .
           platforms: linux/amd64
-          push: true
+          push: ${{ github.event_name != 'pull_request' }}
           sbom: true
           labels: ${{ steps.meta.outputs.labels }}
-          tags: |
-            ${{ env.REGISTRY }}/${{ env.REPO_NAME }}:${{ github.sha }}
-            ${{ env.REGISTRY }}/${{ env.REPO_NAME }}:latest
+          tags: ${{ steps.meta.outputs.tags }}
 
       - name: Print cosign version
+        if: ${{ github.event_name != 'pull_request' }}
         run: cosign version
 
       - name: Sign the container image
+        if: ${{ github.event_name != 'pull_request' }}
         run: cosign sign -y ${{ env.REGISTRY }}/${{ env.REPO_NAME }}:${{ github.sha }}@${{ steps.push-step.outputs.digest }} ${{ env.REGISTRY }}/${{ env.REPO_NAME }}:latest@${{ steps.push-step.outputs.digest }}
   
