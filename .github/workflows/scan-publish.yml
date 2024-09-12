@@ -1,12 +1,12 @@
 name: Scan and Publish Docker Image
 
 on:
-  [ push ]
-  #   branches: [ main ]
-  #   # Publish semver tags as releases.
-  #   tags: [ 'v*.*.*' ]
-  # pull_request:
-  #     branches: [ main ]
+  push:
+    branches: [ main ]
+    # Publish semver tags as releases.
+    tags: [ 'v*.*.*' ]
+  pull_request:
+      branches: [ main ]
 
 
 env:
@@ -95,18 +95,15 @@ jobs:
           context: .
           platforms: linux/amd64
           push: false
-          #sbom: true
+          sbom: true
           labels: ${{ steps.meta.outputs.labels }}
           tags: ${{ steps.meta.outputs.tags }}
-          #|
-          #  ${{ env.REGISTRY }}/${{ env.REPO_NAME }}:${{ github.sha }}
-          #  ${{ env.REGISTRY }}/${{ env.REPO_NAME }}:latest
 
-      # - name: Print cosign version
-      #   if: ${{ github.event_name != 'pull_request' }}
-      #   run: cosign version
+      - name: Print cosign version
+        if: ${{ github.event_name != 'pull_request' }}
+        run: cosign version
 
-      # - name: Sign the container image
-      #   if: ${{ github.event_name != 'pull_request' }}
-      #   run: cosign sign -y ${{ env.REGISTRY }}/${{ env.REPO_NAME }}:${{ github.sha }}@${{ steps.push-step.outputs.digest }} ${{ env.REGISTRY }}/${{ env.REPO_NAME }}:latest@${{ steps.push-step.outputs.digest }}
+      - name: Sign the container image
+        if: ${{ github.event_name != 'pull_request' }}
+        run: cosign sign -y ${{ env.REGISTRY }}/${{ env.REPO_NAME }}:${{ github.sha }}@${{ steps.push-step.outputs.digest }} ${{ env.REGISTRY }}/${{ env.REPO_NAME }}:latest@${{ steps.push-step.outputs.digest }}
   
