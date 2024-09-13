@@ -13,12 +13,12 @@ variable "kubernetes_cluster_name" {
   type        = string
 }
 
-variable "container_registry_name" {
-  description = "The name of the container registry"
+variable "log_analytics_workspace_name" {
+  description = "The name of the Log Analytics workspace"
   type        = string
 }
 
-variable "log_analytics_workspace_name" {
-  description = "The name of the Log Analytics workspace"
+variable "data_collection_rule_name" {
+  description = "The name of the Container Insights data collection rule"
   type        = string
 }

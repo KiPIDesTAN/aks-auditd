@@ -1,5 +1,5 @@
 resource_group_name = "rg-aks-audit-demo"
-container_registry_name = "acraksauditdemo123"
 kubernetes_cluster_name = "aks-audit-demo"
 log_analytics_workspace_name = "law-aks-audit-demo"
+data_collection_rule_name = "dcr-aks-audit-demo"
 location = "eastus2"
