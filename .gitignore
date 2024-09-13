@@ -3,3 +3,6 @@
 *.terraform.lock.hcl
 *.tfstate
 *.tfstate.backup
+
+# ignore any locally built aks-auditd binaries
+src/aks-auditd
