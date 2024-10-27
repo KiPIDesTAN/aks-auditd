@@ -17,23 +17,21 @@ spec:
       hostPID: true
       initContainers:
       - name: init
-        image: ghcr.io/kipidestan/aks-auditd:latest
-        command: ["/app/aks-auditd", "--mode", "init"]
+        #image: ghcr.io/kipidestan/aks-auditd:latest
+        image: auditacrtest123.azurecr.io/aks-auditd-init:22
         volumeMounts:
         - name: node
           mountPath: /node
-          readOnly: false
-        - name: auditd-rules
-          mountPath: /auditd-rules
-        - name: audisp-plugins
-          mountPath: /audisp-plugins
         imagePullPolicy: Always
         securityContext:
           privileged: true
       containers:
       - name: aks-auditd
-        image: ghcr.io/kipidestan/aks-auditd:latest
-        command: ["/app/aks-auditd", "--mode", "poll"]
+        #image: ghcr.io/kipidestan/aks-auditd:latest
+        image: auditacrtest123.azurecr.io/aks-auditd:18
+        env:
+        - name: AA_LOG_LEVEL
+          value: debug
         volumeMounts:
         - name: node
           mountPath: /node
@@ -44,6 +42,8 @@ spec:
         imagePullPolicy: Always
         securityContext:
           privileged: true
+          # runAsUser: 807
+          # runAsGroup: 808
       volumes:
       - name: node
         hostPath:

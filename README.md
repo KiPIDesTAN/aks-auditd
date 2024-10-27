@@ -162,6 +162,9 @@ Below are key differences between [Azure aks-auditd](https://github.com/Azure/ak
 |---|---|---|---|
 | Base Image | [Alpine Linux](https://hub.docker.com/_/alpine) | [Azure Distroless Minimal](https://mcr.microsoft.com/en-us/product/azurelinux/distroless/minimal/about) | Azure distroless is a hardended, official Azure distro for containers. |
 | Implementation | Shell Scripts | Go binary | Go static linking allows for a smaller attack surface. |
-| Configurability | Minimal | See Configuration | Azure aks-auditd commands did not work with latest 
+| Configurability | Minimal | [See Configuration](config.yaml) | Azure aks-auditd commands did not work with latest 
 | Agent Reliance | Legacy OMS on VMSS | Container Insights deployed as POD | CI is the updated method to deliver log data to a Log Analytics Workspace. Agent runs as a Daemonset. Not on the VMSS. |
 
+Another note is that this aks-auditd binary supports a two stage execution process. Review the [daemonset.yaml](./kubernetes/daemonset.yaml). The binary supports --mode init, which runs as an initial container, deploying the auditd service, and --mode poll, which runs as the normal process to restart the auditd service when updates from the ConfigMap configurations are applied.
+
+What happens is that the init mode can run at elevated privileges to deploy software, add a user, give that user sudo rights to restart the auditd service, and the poll mode can restart the service as needed without the need to run as root.

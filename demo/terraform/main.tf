@@ -117,9 +117,9 @@ resource "kubernetes_manifest" "aks-auditd-daemonset" {
   depends_on = [ azurerm_kubernetes_cluster.this ]
 }
 
-# Deploy the Container Insights ConfigMap to gather kube-system:aks-auditd logs from the AKS cluster
-# These will be sent to the ContainerLogV2 table in the Log Analytics Workspace
-resource "kubernetes_manifest" "containerinsights" {
-  manifest = yamldecode(file("../container-azm-ms-agentconfig.yaml"))
-  depends_on = [ azurerm_kubernetes_cluster.this ]
-}
+# # Deploy the Container Insights ConfigMap to gather kube-system:aks-auditd logs from the AKS cluster
+# # These will be sent to the ContainerLogV2 table in the Log Analytics Workspace
+# resource "kubernetes_manifest" "containerinsights" {
+#   manifest = yamldecode(file("../container-azm-ms-agentconfig.yaml"))
+#   depends_on = [ azurerm_kubernetes_cluster.this ]
+# }

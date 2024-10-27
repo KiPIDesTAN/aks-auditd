@@ -1,13 +1,13 @@
 # Log level. Valid values are panic, fatal, error, warn, info, debug, trace
 # Default is info
-logLevel: info
+# logLevel: info
 
 # Interval at which to poll the auditd rules and plugins directories for updates
 # Default is 30s
-pollInterval: 30s
+# pollInterval: 30s
 
 # Path to the auditd rules directory on the Kubernetes node
-rulesDirectory: /etc/audit/rules.d/
+# rulesDirectory: /etc/audit/rules.d/
 
 # Path to the audisp plugins directory on the Kubernetes node
-pluginsDirectory: /etc/audit/plugins.d/
+# pluginsDirectory: /etc/audit/plugins.d/
