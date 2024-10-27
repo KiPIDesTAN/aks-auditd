@@ -2,7 +2,6 @@ package main
 
 import (
 	"crypto/sha256"
-	"flag"
 	"fmt"
 	"io"
 	"os"
@@ -47,35 +46,6 @@ type DirectoryPair struct {
 func main() {
 	// NOTE: All of this code needs to be refactored at some point. It was written this way to make
 	// it easier to test the code in a container environment.
-
-	// Parse command line flags
-	modePtr := flag.String("mode", "streamline", "Mode of operation: streamline, init, or poll")
-	flag.StringVar(modePtr, "m", "streamline", "Shorthand for --mode")
-	flag.Parse()
-
-	modeFlagCount := 0
-	flag.Visit(func(f *flag.Flag) {
-		if f.Name == "mode" || f.Name == "m" {
-			modeFlagCount++
-		}
-	})
-
-	// Ensure only one instance of --mode or -m is allowed
-	if modeFlagCount > 1 {
-		fmt.Println("Error: Only one instance of --mode or -m can be specified")
-		os.Exit(1)
-	}
-
-	// Validate the mode
-	switch *modePtr {
-	case "streamline", "init", "poll":
-		fmt.Printf("Running in %s mode\n", *modePtr)
-	default:
-		// Display help if mode is invalid
-		fmt.Println("Invalid mode. Allowed values are: streamline, init, poll")
-		flag.Usage()
-		os.Exit(1)
-	}
 
 	// Set default config values
 	viper.SetDefault("pollInterval", "30s")
@@ -122,77 +92,73 @@ func main() {
 	log.Info("Log Level: ", viper.GetString("logLevel"))
 	log.SetLevel(level)
 
-	// If this is streamline or init mode, run the initial setup function
-	if *modePtr == "streamline" || *modePtr == "init" {
-		// Enter chroot to run commands within the AKS node
-		exit, err := Chroot(chrootMount)
-		if err != nil {
-			panic(err)
-		}
-
-		// Run `apt-get update` inside chroot
-		log.Info("Updating apt cache.")
-		runCommand("apt-get", "update")
-
-		// Run `apt-get install auditd -y` inside chroot
-		log.Info("Installing auditd.")
-		runCommand("apt-get", "install", "auditd", "audispd-plugins", "-y")
-
-		// Run `systemctl start auditd` inside chroot
-		log.Info("Starting auditd service.")
-		runCommand("systemctl", "start", "auditd")
-
-		// Exit from the chroot
-		if err := exit(); err != nil {
-			panic(err)
-		}
+	// Enter chroot to run commands within the AKS node
+	exit, err := Chroot(chrootMount)
+	if err != nil {
+		panic(err)
 	}
 
-	// If we are running in streamline or poll mode, run the section below
-	if *modePtr == "streamline" || *modePtr == "poll" {
-		// Run the main loop
-		for {
-			// Compare and sync the rules and plugins directories
-			directories := []DirectoryPair{
-				{
-					SourceDirectory: rulesMount,
-					TargetDirectory: chrootMount + "/" + viper.GetString("rulesDirectory"),
-				},
-				{
-					SourceDirectory: pluginsMount,
-					TargetDirectory: chrootMount + "/" + viper.GetString("pluginsDirectory"),
-				},
+	// Run `apt-get update` inside chroot
+	log.Info("Updating apt cache.")
+	runCommand("apt-get", "update")
+
+	// Run `apt-get install auditd -y` inside chroot
+	log.Info("Installing auditd.")
+	runCommand("apt-get", "install", "auditd", "audispd-plugins", "-y")
+
+	// Run `systemctl start auditd` inside chroot
+	log.Info("Starting auditd service.")
+	runCommand("systemctl", "start", "auditd")
+
+	// Exit from the chroot
+	if err := exit(); err != nil {
+		panic(err)
+	}
+
+	directories := []DirectoryPair{
+		{
+			SourceDirectory: rulesMount,
+			TargetDirectory: chrootMount + viper.GetString("rulesDirectory"),
+		},
+		{
+			SourceDirectory: pluginsMount,
+			TargetDirectory: chrootMount + viper.GetString("pluginsDirectory"),
+		},
+	}
+
+	// Run the main loop
+	for {
+		// Compare and sync the rules and plugins directories
+
+		for _, pair := range directories {
+			sourceDir := pair.SourceDirectory
+			targetDir := pair.TargetDirectory
+			requiresReload, err := compareAndSyncDirectories(sourceDir, targetDir)
+			if err != nil {
+				panic(err)
 			}
 
-			for _, pair := range directories {
-				sourceDir := pair.SourceDirectory
-				targetDir := pair.TargetDirectory
-				requiresReload, err := compareAndSyncDirectories(sourceDir, targetDir)
+			if requiresReload {
+				exit, err := Chroot(chrootMount)
 				if err != nil {
 					panic(err)
 				}
 
-				if requiresReload {
-					exit, err := Chroot(chrootMount)
-					if err != nil {
-						panic(err)
-					}
+				log.Info("Reloading auditd.")
+				runCommand("systemctl", "restart", "auditd")
+				if log.GetLevel() == log.DebugLevel {
+					runCommand("auditctl", "-l")
+				}
 
-					log.Info("Reloading auditd.")
-					runCommand("systemctl", "restart", "auditd")
-					if log.GetLevel() == log.DebugLevel {
-						runCommand("auditctl", "-l")
-					}
-
-					// exit from the chroot
-					if err := exit(); err != nil {
-						panic(err)
-					}
+				// exit from the chroot
+				if err := exit(); err != nil {
+					panic(err)
 				}
 			}
-			time.Sleep(viper.GetDuration("pollInterval"))
 		}
+		time.Sleep(viper.GetDuration("pollInterval"))
 	}
+
 }
 
 // Chroot changes the root directory of the current process to the specified path

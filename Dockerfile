@@ -13,7 +13,7 @@ RUN mkdir -p /etc/aks-auditd
 COPY config.yaml /etc/aks-auditd/config.yaml
 
 # Update tdnf and install requirements for updating golang
-RUN tdnf update \
+RUN tdnf update -y \
     && tdnf install -y ca-certificates tar
 
 # Install a specific Go version to get around any security issues not in the Azure Linux golang package
