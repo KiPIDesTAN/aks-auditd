@@ -69,7 +69,7 @@ jobs:
         id: toLowerCase
         run: echo "REPO_NAME=${REPO_NAME,,}" >> "${GITHUB_ENV}"
         env:
-          REPO_NAME: '${{ github.repository_owner }}/${{ matrix.image-name }}''
+          REPO_NAME: '${{ github.repository_owner }}/${{ matrix.image-name }}'
 
       - name: Extract Docker metadata
         id: meta
