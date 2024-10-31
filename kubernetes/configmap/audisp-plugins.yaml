@@ -9,6 +9,13 @@ data:
   # These correspond to audisp/plugins.d/ files and are intended to be used to send audit logs
   # to remote systems. By default we use syslog as the event forwarder in this configuration.
   syslog.conf: |
+    # This file controls the configuration of the syslog plugin.
+    # It simply takes events and writes them to syslog. The
+    # arguments provided can be the default priority that you
+    # want the events written with. And optionally, you can give
+    # a second argument indicating the facility that you want events
+    # logged to. Valid options are LOG_LOCAL0 through 7, LOG_AUTH,
+    # LOG_AUTHPRIV, LOG_DAEMON, LOG_SYSLOG, and LOG_USER.
     active = yes
     direction = out
     path = /sbin/audisp-syslog

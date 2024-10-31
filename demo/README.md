@@ -14,6 +14,8 @@ __NOTE:__ This code spins up resources. These resources are inexpensive, but not
 
 ## Deploy the Demo
 
+__NOTE:__ Some versions of the [Kubernetes Terraform Provider](https://registry.terraform.io/providers/hashicorp/kubernetes/latest/docs) throw errors if the AKS cluster doesn't exist before trying to deploy the YAML. If this happens, open the main.tf file, comment out everything from "Get the kubeconfig for the AKS cluster" to the end of the file, run the deployment. Then, uncomment and rerun. You can also get around this issue by having a multi-stage deployment - one Terraform apply creates the AKS instance and a subsequent one deploys the YAML.
+
 Update the [var-demo.auto.tfvars](./terraform/var-demo.auto.tfvars) file with the variables you want to use.
 
 Login to Azure

@@ -17,13 +17,17 @@ env:
 jobs:
   govulncheck_job:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        subfolder: [ aks-auditd, aks-auditd-init, aks-auditd-monitor ]
+
     name: Run govulncheck
     steps:
       - id: govulncheck
         uses: golang/govulncheck-action@v1
         with:
-           work-dir: src
-           go-version-file: src/go.mod
+           work-dir: src/${{ matrix.subfolder }}
+           go-version-file: src/${{ matrix.subfolder }}/go.mod
            cache: false
   
   build_job:
@@ -35,6 +39,10 @@ jobs:
       contents: read
       packages: write
       id-token: write # needed for signing the images with GitHub OIDC Token
+    
+    # strategy:
+    #   matrix:
+    #     image-extension: [ init, run ]
 
     steps:
       - name: Checkout repository
