@@ -19,7 +19,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        subfolder: [ aks-auditd, aks-auditd-init, aks-auditd-monitor ]
+        subfolder: [  aks-auditd-init, aks-auditd, aks-auditd-monitor ]
 
     name: Run govulncheck
     steps:
@@ -40,9 +40,9 @@ jobs:
       packages: write
       id-token: write # needed for signing the images with GitHub OIDC Token
     
-    # strategy:
-    #   matrix:
-    #     image-extension: [ init, run ]
+    strategy:
+      matrix:
+        image-name: [ aks-auditd-init, aks-auditd ] 
 
     steps:
       - name: Checkout repository
@@ -75,7 +75,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY }}/${{ env.REPO_NAME }}
+          images: ${{ env.REGISTRY }}/${{ matrix.image-name }}
           tags: |
             type=ref,event=branch
             type=ref,event=pr
@@ -87,12 +87,13 @@ jobs:
         with: 
           load: true
           push: false
-          tags: ${{ env.REGISTRY }}/${{ env.REPO_NAME }}:${{ env.TEST_TAG }}
+          file: 'Dockerfile.${{ matrix.image-name }}'
+          tags: ${{ env.REGISTRY }}/${{ matrix.image-name }}:${{ env.TEST_TAG }}
 
       - name: Run Trivy Vulnerability Scanner
         uses: aquasecurity/trivy-action@0.20.0
         with:
-          image-ref: '${{ env.REGISTRY }}/${{ env.REPO_NAME }}:${{ env.TEST_TAG }}'
+          image-ref: '${{ env.REGISTRY }}/${{ matrix.image-name }}:${{ env.TEST_TAG }}'
           format: 'table'
 
       - name: Build and push
@@ -112,5 +113,5 @@ jobs:
 
       - name: Sign the container image
         if: ${{ github.event_name != 'pull_request' }}
-        run: cosign sign -y ${{ env.REGISTRY }}/${{ env.REPO_NAME }}:${{ github.sha }}@${{ steps.push-step.outputs.digest }} ${{ env.REGISTRY }}/${{ env.REPO_NAME }}:latest@${{ steps.push-step.outputs.digest }}
+        run: cosign sign -y ${{ env.REGISTRY }}/${{ matrix.image-name }}:${{ github.sha }}@${{ steps.push-step.outputs.digest }} ${{ env.REGISTRY }}/${{ matrix.image-name }}:latest@${{ steps.push-step.outputs.digest }}
   
