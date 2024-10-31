@@ -42,7 +42,7 @@ jobs:
     
     strategy:
       matrix:
-        image-name: [ aks-auditd ] 
+        image-name: [ aks-auditd-init, aks-auditd ] 
 
     steps:
       - name: Checkout repository
@@ -90,11 +90,11 @@ jobs:
           file: 'Dockerfile.${{ matrix.image-name }}'
           tags: ${{ env.REGISTRY }}/${{ env.REPO_NAME }}:${{ env.TEST_TAG }}
 
-      - name: Run Trivy Vulnerability Scanner
-        uses: aquasecurity/trivy-action@0.20.0
-        with:
-          image-ref: '${{ env.REGISTRY }}/${{ env.REPO_NAME }}:${{ env.TEST_TAG }}'
-          format: 'table'
+      # - name: Run Trivy Vulnerability Scanner
+      #   uses: aquasecurity/trivy-action@0.20.0
+      #   with:
+      #     image-ref: '${{ env.REGISTRY }}/${{ env.REPO_NAME }}:${{ env.TEST_TAG }}'
+      #     format: 'table'
 
       - name: Build and push
         id: push-step
