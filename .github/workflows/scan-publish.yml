@@ -75,7 +75,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY }}/${{ matrix.image-name }}
+          images: ${{ env.REGISTRY }}/${{ env.REPO_NAME }}
           tags: |
             type=ref,event=branch
             type=ref,event=pr
