@@ -90,11 +90,11 @@ jobs:
           file: 'Dockerfile.${{ matrix.image-name }}'
           tags: ${{ env.REGISTRY }}/${{ matrix.image-name }}:${{ env.TEST_TAG }}
 
-      # - name: Run Trivy Vulnerability Scanner
-      #   uses: aquasecurity/trivy-action@0.20.0
-      #   with:
-      #     image-ref: '${{ env.REGISTRY }}/${{ matrix.image-name }}:${{ env.TEST_TAG }}'
-      #     format: 'table'
+      - name: Run Trivy Vulnerability Scanner
+        uses: aquasecurity/trivy-action@0.20.0
+        with:
+          image-ref: '${{ env.REGISTRY }}/${{ matrix.image-name }}:${{ env.TEST_TAG }}'
+          format: 'table'
 
       - name: Build and push
         id: push-step
