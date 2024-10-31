@@ -69,7 +69,7 @@ jobs:
         id: toLowerCase
         run: echo "REPO_NAME=${REPO_NAME,,}" >> "${GITHUB_ENV}"
         env:
-          REPO_NAME: ${{ github.repository }}
+          REPO_NAME: '${{ github.repository_owner }}/${{ matrix.image-name }}''
 
       - name: Extract Docker metadata
         id: meta
@@ -88,12 +88,12 @@ jobs:
           load: true
           push: false
           file: 'Dockerfile.${{ matrix.image-name }}'
-          tags: ${{ env.REGISTRY }}/${{ matrix.image-name }}:${{ env.TEST_TAG }}
+          tags: ${{ env.REGISTRY }}/${{ env.REPO_NAME }}:${{ env.TEST_TAG }}
 
       - name: Run Trivy Vulnerability Scanner
         uses: aquasecurity/trivy-action@0.20.0
         with:
-          image-ref: '${{ env.REGISTRY }}/${{ matrix.image-name }}:${{ env.TEST_TAG }}'
+          image-ref: '${{ env.REGISTRY }}/${{ env.REPO_NAME }}:${{ env.TEST_TAG }}'
           format: 'table'
 
       - name: Build and push
@@ -114,5 +114,5 @@ jobs:
 
       - name: Sign the container image
         if: ${{ github.event_name != 'pull_request' }}
-        run: cosign sign -y ${{ env.REGISTRY }}/${{ matrix.image-name }}:${{ github.sha }}@${{ steps.push-step.outputs.digest }} ${{ env.REGISTRY }}/${{ matrix.image-name }}:latest@${{ steps.push-step.outputs.digest }}
+        run: cosign sign -y ${{ env.REGISTRY }}/${{ env.REPO_NAME }}:${{ github.sha }}@${{ steps.push-step.outputs.digest }} ${{ env.REGISTRY }}/${{ env.REPO_NAME }}:latest@${{ steps.push-step.outputs.digest }}
   
