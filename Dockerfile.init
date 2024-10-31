@@ -1,0 +1,53 @@
+ARG BUILDKIT_SBOM_SCAN_CONTEXT=true
+ARG BUILDKIT_SBOM_SCAN_STAGE=base,final
+FROM mcr.microsoft.com/azurelinux/base/core:3.0 AS base
+
+WORKDIR /app
+
+# Copy source code
+COPY src/aks-auditd-init/*.go ./aks-auditd-init/
+COPY src/aks-auditd-monitor/*.go ./aks-auditd-monitor/
+COPY src/aks-auditd-monitor/aks-auditd-monitor.service ./aks-auditd-monitor/
+COPY scripts/get_golang.sh ./
+
+# Copy example config file to the container. Don't change this path. It is hardcoded in the go code
+RUN mkdir -p /etc/aks-auditd
+COPY config.yaml /etc/aks-auditd/config.yaml
+
+# Update tdnf and install requirements for updating golang
+RUN tdnf update -y \
+    && tdnf install -y ca-certificates tar
+
+# Install a specific Go version to get around any security issues not in the Azure Linux golang package
+ENV GO_BASE_PATH="/tmp" PATH="/tmp/go/bin:${PATH}"
+RUN chmod +x get_golang.sh && ./get_golang.sh
+
+# Compile the aks-auditd-init binary
+WORKDIR /app/aks-auditd-init
+RUN go mod init aksauditdinit \
+    && go mod tidy \
+    && GOARCH=amd64 CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o aks-auditd-init main.go
+
+# Compile the aks-auditd-monitor binary, which is copied to the AKS worker node for restarting the auditd service.
+# AKS worker nodes run Ubuntu, but compiling on the Azure Linux container should be fine when the architectures match.
+WORKDIR /app/aks-auditd-monitor
+RUN go mod init aksauditdmonitor \
+    && go mod tidy \
+    && GOARCH=amd64 CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o aks-auditd-monitor main.go
+
+FROM mcr.microsoft.com/azurelinux/distroless/minimal:3.0 AS final
+
+LABEL org.opencontainers.image.source=https://github.com/KiPIDesTAN/aks-auditd
+LABEL org.opencontainers.image.description="Auditd for Azure Kubernetes Service"
+LABEL org.opencontainers.image.licenses=GPLv3
+
+WORKDIR /app
+
+COPY --from=base /app/aks-auditd-init/aks-auditd-init .
+COPY --from=base /app/aks-auditd-monitor/aks-auditd-monitor .
+COPY --from=base /app/aks-auditd-monitor/aks-auditd-monitor.service .
+COPY --from=base /etc/aks-auditd /etc/aks-auditd
+
+VOLUME /node
+
+ENTRYPOINT ["/app/aks-auditd-init"]

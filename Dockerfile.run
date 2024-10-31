@@ -5,7 +5,7 @@ FROM mcr.microsoft.com/azurelinux/base/core:3.0 AS base
 WORKDIR /app
 
 # Copy source code
-COPY src/*.go ./
+COPY src/aks-auditd/*.go ./
 COPY scripts/get_golang.sh ./
 
 # Copy example config file

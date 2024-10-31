@@ -14,7 +14,23 @@ spec:
       labels:
         name: aks-auditd
     spec:
-      hostPID: true
+      hostPID: true   # This is required because of the systemctl command in aks-auditd-init. The container needs access to the host PID namespace to restart the auditd service. I may try to package the aks-auditd-monitor in a deb package to get around this in the future.
+      initContainers:
+      - name: init
+        image: ghcr.io/kipidestan/aks-auditd-init:latest
+        volumeMounts:
+        - name: node
+          mountPath: /node
+        imagePullPolicy: Always
+        securityContext:
+          privileged: true
+          capabilities:
+            drop:
+            - ALL
+            add:
+            - SYS_CHMOD
+            - SYS_CHOWN
+            - SYS_CHROOT
       containers:
       - name: aks-auditd
         image: ghcr.io/kipidestan/aks-auditd:latest
@@ -27,12 +43,11 @@ spec:
           mountPath: /audisp-plugins
         imagePullPolicy: Always
         securityContext:
-          privileged: true
+          runAsUser: 807
+          runAsGroup: 808
           capabilities:
             drop:
             - ALL
-            add:
-            - SYS_CHROOT
       volumes:
       - name: node
         hostPath:
