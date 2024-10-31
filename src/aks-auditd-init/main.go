@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"strconv"
@@ -29,18 +30,16 @@ var levelMap = map[string]log.Level{
 // Container mount point where the host file system is mounted.
 const chrootMount = "/node"
 
-// Container mount point where auditd rules are stored.
-const rulesMount = "/auditd-rules"
-
-// Container mount point where the audisp-plugins are stored.
-const pluginsMount = "/audisp-plugins"
-
 // UID of the user the main container will run as - restarting the auditd service and copying config files to the node.
 // Account is created with --system flag, which requires a UID between SYS_UID_MIN and SYS_UID_MAX, defined in /etc/login.defs
 const aksauditdUID = 807
 
 // GID of the audit admins group
 const auditadminsGID = 808
+
+// Location of where the aks-auditd-monitor binary and service file will be copied to on the host file system
+const aksAuditdMonitorBinaryPath = "/usr/sbin/aks-auditd-monitor"
+const aksAuditdMonitorServicePath = "/etc/systemd/system/aks-auditd-monitor.service"
 
 func main() {
 	// TODO: Some of these values can be removed here and from the yaml file as we don't use them all.
@@ -107,10 +106,6 @@ func main() {
 	log.Info("Creating aks-auditd user in the audit-admins group.")
 	runCommand("useradd", "--system", "--shell", "/usr/sbin/nologin", "--uid", strconv.Itoa(aksauditdUID), "--gid", "808", "--home", "/nonexistent", "aks-auditd")
 
-	// Add the aks-auditd user to the audit-admins group
-	log.Info("Adding the aks-auditd user to the audit-admins group.")
-	runCommand("usermod", "-aG", "audit-admins", "aks-auditd")
-
 	// Set /etc/audit to 751 permissions so the aks-audit group members can traverse to subdirectories, such as /etc/audit/rules.d
 	// and /etc/audit/plugins.d, but not modify any other /etc/audit files.
 	log.Info("Setting permissions on /etc/audit.")
@@ -119,7 +114,6 @@ func main() {
 		log.Fatal(err)
 	}
 
-	// TODO: I have some variable clean-up here to do. I also need to better protect these values as they come from a yaml file or environment variable, which can cause things to blow up.
 	// Change ownership on the rules directory and all subfiles
 	log.Info("Changing rules.d directory permissions.")
 	runCommand("chgrp", "-R", "audit-admins", viper.GetString("rulesDirectory")) // Change the group to audit-admins
@@ -134,26 +128,60 @@ func main() {
 	runCommand("chmod", "g+s", viper.GetString("pluginsDirectory"))                // Set the setgid bit so that new files inherit the group
 	runCommand("rm", "-f", "/etc/audit/plugins.d/*")                               // Clear out the plugins directory
 
-	// Give the aks-auditd user sudo privileges to restart the auditd service
-	log.Info("Give auditd sudo privileges for the auditd service.")
-	echo := exec.Command("echo", "aks-auditd ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart auditd")
-	tee := exec.Command("tee", "/etc/sudoers.d/aks-auditd")
-
-	// Pipe the echo command to the tee command.
-	pipe, _ := echo.StdoutPipe()
-	defer pipe.Close()
-	tee.Stdin = pipe
-	echo.Start()
-	res, _ := tee.Output()
-
-	log.Debug("Output: ", string(res))
-
-	// Set proper ownership on the aks-auditd file
-	log.Info("Set read-only privileges on the aks-auditd file for owner and group.")
-	err = syscall.Chmod("/etc/sudoers.d/aks-auditd", 0440)
+	// Check if the aks-auditd-monitor service is running. If we get an "active" response back, we want to stop the service so our binaries can be updated in later steps.
+	aksMonitorServiceStatus := exec.Command("systemctl", "is-active", "aks-auditd-monitor")
+	output, err := aksMonitorServiceStatus.CombinedOutput()
 	if err != nil {
-		log.Fatal(err)
+		log.Errorf("Failed to check if aks-auditd-monitor service is running. Updating aks-auditd-monitor may fail. Error: %v", err)
+	} else if strings.TrimSpace(string(output)) == "active" {
+		log.Info("Stopping aks-auditd-monitor service.")
+		runCommand("systemctl", "stop", "aks-auditd-monitor")
+	} else {
+		log.Debug("aks-auditd-monitor service is not running or does not exist.")
 	}
+
+	// Exit from the chroot
+	if err := exit(); err != nil {
+		panic(err)
+	}
+
+	// Copy the aks-auditd-monitor binary and service file to the host file system. We do this outside the chroot because we need to copy from the container to the host.
+	// When we restart a deployment, the updated binaries are copied over to the host file system. We check to make sure the associated service is stopped above.
+	// Copy over the aks-audit-monitor binary to the host file system
+	aksMonitorBinaryContainerPath := chrootMount + aksAuditdMonitorBinaryPath
+	log.Info("Copying aks-auditd-monitor binary and service file to the host file system.")
+	if err := copyFile("/app/aks-auditd-monitor", aksMonitorBinaryContainerPath); err != nil {
+		log.Error(fmt.Sprintf("Failed to copy file: %s to %s, error: %v", "/app/aks-auditd-monitor", aksMonitorBinaryContainerPath, err))
+	}
+	if err := os.Chmod(aksMonitorBinaryContainerPath, 0755); err != nil {
+		log.Error(fmt.Sprintf("Failed to set permissions on file: %s, error: %v", aksMonitorBinaryContainerPath, err))
+	}
+	if err := os.Chown(aksMonitorBinaryContainerPath, 0, 0); err != nil {
+		log.Error(fmt.Sprintf("Failed to set ownership on file: %s, error: %v", aksMonitorBinaryContainerPath, err))
+	}
+
+	// Copy over the aks-auditd-monitor service file to the host file system
+	aksMonitorServiceContainerPath := chrootMount + aksAuditdMonitorServicePath
+	if err := copyFile("/app/aks-auditd-monitor.service", aksMonitorServiceContainerPath); err != nil {
+		log.Error(fmt.Sprintf("Failed to copy file: %s to %s, error: %v", "/app/aks-auditd-monitor.service", aksMonitorServiceContainerPath, err))
+	}
+	if err := os.Chmod(aksMonitorServiceContainerPath, 0644); err != nil {
+		log.Error(fmt.Sprintf("Failed to set permissions on file: %s, error: %v", aksMonitorServiceContainerPath, err))
+	}
+	if err := os.Chown(aksMonitorServiceContainerPath, 0, 0); err != nil {
+		log.Error(fmt.Sprintf("Failed to set ownership on file: %s, error: %v", aksMonitorServiceContainerPath, err))
+	}
+
+	// Chroot to the host file system to configure the aks-auditd-monitor service and start it
+	exit, err = Chroot(chrootMount)
+	if err != nil {
+		panic(err)
+	}
+
+	// At this point, we can configure the aksAuditdMonitorService to start on boot and start the service.
+	runCommand("systemctl", "daemon-reload")
+	runCommand("systemctl", "enable", "aks-auditd-monitor")
+	runCommand("systemctl", "start", "aks-auditd-monitor")
 
 	// Exit from the chroot
 	if err := exit(); err != nil {
@@ -189,12 +217,32 @@ func runCommand(cmd string, args ...string) {
 	// Create the command
 	command := exec.Command(cmd, args...)
 
+	log.Debugf("Running command: %s %s", cmd, strings.Join(args, " "))
+
 	// Run the command and capture the output
 	output, err := command.CombinedOutput()
 	if err != nil {
-		log.Error(fmt.Sprintf("Command failed with error: %s  Output: %s", err, string(output)))
+		log.Errorf("Command failed with error: %s  Output: %s", err, string(output))
 	}
 
 	// Print the output
-	log.Debug(fmt.Print(string(output)))
+	log.Debugf("Command Output: %s", string(output))
+}
+
+// copyFile copies a file from src to dst
+func copyFile(sourcePath, targetPath string) error {
+	srcFile, err := os.Open(sourcePath)
+	if err != nil {
+		return err
+	}
+	defer srcFile.Close()
+
+	targetFile, err := os.Create(targetPath)
+	if err != nil {
+		return err
+	}
+	defer targetFile.Close()
+
+	_, err = io.Copy(targetFile, srcFile)
+	return err
 }
