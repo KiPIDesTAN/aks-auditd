@@ -113,7 +113,7 @@ func main() {
 			}
 
 			if requiresReload { // Reload is handled by the aks-auditd-monitor service
-				log.Debug("Auditd rules/plugins require reload")
+				log.Info("Differences found. Auditd rules/plugins require reload.")
 			}
 		}
 		time.Sleep(viper.GetDuration("pollInterval"))

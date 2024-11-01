@@ -17,7 +17,7 @@ spec:
       hostPID: true   # This is required because of the systemctl command in aks-auditd-init. The container needs access to the host PID namespace to restart the auditd service. I may try to package the aks-auditd-monitor in a deb package to get around this in the future.
       initContainers:
       - name: init
-        image: ghcr.io/kipidestan/aks-auditd-init:latest
+        image: ghcr.io/kipidestan/aks-auditd-init:0.0.5
         volumeMounts:
         - name: node
           mountPath: /node
@@ -33,7 +33,7 @@ spec:
             - SYS_CHROOT
       containers:
       - name: aks-auditd
-        image: ghcr.io/kipidestan/aks-auditd:latest
+        image: ghcr.io/kipidestan/aks-auditd:0.0.5
         volumeMounts:
         - name: node
           mountPath: /node

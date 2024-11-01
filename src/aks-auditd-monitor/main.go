@@ -2,6 +2,7 @@ package main
 
 import (
 	"os/exec"
+	"strings"
 	"sync"
 	"time"
 
@@ -100,6 +101,10 @@ func restartAuditd() {
 	restarting = true
 	mu.Unlock()
 
+	// Auditd will not properly restart the audisp-syslog plugin
+	// if the files aren't owned by root:root. Set that here.
+	log.Debug("Setting ownership of auditd plugins configs to root ownership.")
+	runCommand("chown", "root:root", "/etc/audit/rules.d/*")
 	log.Info("Restarting auditd service.")
 	cmd := exec.Command("systemctl", "restart", "auditd")
 	if err := cmd.Run(); err != nil {
@@ -111,4 +116,22 @@ func restartAuditd() {
 	mu.Lock()
 	restarting = false
 	mu.Unlock()
+}
+
+// runCommand runs a command and logs the output
+func runCommand(cmd string, args ...string) {
+
+	// Create the command
+	command := exec.Command(cmd, args...)
+
+	log.Debugf("Running command: %s %s", cmd, strings.Join(args, " "))
+
+	// Run the command and capture the output
+	output, err := command.CombinedOutput()
+	if err != nil {
+		log.Errorf("Command failed with error: %s  Output: %s", err, string(output))
+	}
+
+	// Print the output
+	log.Debugf("Command Output: %s", string(output))
 }

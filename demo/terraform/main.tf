@@ -91,35 +91,35 @@ resource "azurerm_monitor_data_collection_rule_association" "this" {
   target_resource_id      = azurerm_kubernetes_cluster.this.id
 }
 
-# # Get the kubeconfig for the AKS cluster
-# provider "kubernetes" {
-#   host                   = "${azurerm_kubernetes_cluster.this.kube_config.0.host}"
-#   client_certificate     = "${base64decode(azurerm_kubernetes_cluster.this.kube_config.0.client_certificate)}"
-#   client_key             = "${base64decode(azurerm_kubernetes_cluster.this.kube_config.0.client_key)}"
-#   cluster_ca_certificate = "${base64decode(azurerm_kubernetes_cluster.this.kube_config.0.cluster_ca_certificate)}"
-# }
+# Get the kubeconfig for the AKS cluster
+provider "kubernetes" {
+  host                   = "${azurerm_kubernetes_cluster.this.kube_config.0.host}"
+  client_certificate     = "${base64decode(azurerm_kubernetes_cluster.this.kube_config.0.client_certificate)}"
+  client_key             = "${base64decode(azurerm_kubernetes_cluster.this.kube_config.0.client_key)}"
+  cluster_ca_certificate = "${base64decode(azurerm_kubernetes_cluster.this.kube_config.0.cluster_ca_certificate)}"
+}
 
-# # Deploy the auditd-rules ConfigMap to the AKS cluster
-# resource "kubernetes_manifest" "auditd-rules" {
-#   manifest = yamldecode(file("../../kubernetes/configmap/auditd-rules.yaml"))
-#   depends_on = [ azurerm_kubernetes_cluster.this ]
-# }
+# Deploy the auditd-rules ConfigMap to the AKS cluster
+resource "kubernetes_manifest" "auditd-rules" {
+  manifest = yamldecode(file("../../kubernetes/configmap/auditd-rules.yaml"))
+  depends_on = [ azurerm_kubernetes_cluster.this ]
+}
 
-# # Deploy the auditd-rules ConfigMap to the AKS cluster
-# resource "kubernetes_manifest" "audisp-plugins" {
-#   manifest = yamldecode(file("../../kubernetes/configmap/audisp-plugins.yaml"))
-#   depends_on = [ azurerm_kubernetes_cluster.this ]
-# }
+# Deploy the auditd-rules ConfigMap to the AKS cluster
+resource "kubernetes_manifest" "audisp-plugins" {
+  manifest = yamldecode(file("../../kubernetes/configmap/audisp-plugins.yaml"))
+  depends_on = [ azurerm_kubernetes_cluster.this ]
+}
 
-# # Deploy the DaemonSet to the AKS cluster
-# resource "kubernetes_manifest" "aks-auditd-daemonset" {
-#   manifest = yamldecode(file("../../kubernetes/daemonset.yaml"))
-#   depends_on = [ azurerm_kubernetes_cluster.this ]
-# }
+# Deploy the DaemonSet to the AKS cluster
+resource "kubernetes_manifest" "aks-auditd-daemonset" {
+  manifest = yamldecode(file("../../kubernetes/daemonset.yaml"))
+  depends_on = [ azurerm_kubernetes_cluster.this ]
+}
 
-# # Deploy the Container Insights ConfigMap to gather kube-system:aks-auditd logs from the AKS cluster
-# # These will be sent to the ContainerLogV2 table in the Log Analytics Workspace
-# resource "kubernetes_manifest" "containerinsights" {
-#   manifest = yamldecode(file("../container-azm-ms-agentconfig.yaml"))
-#   depends_on = [ azurerm_kubernetes_cluster.this ]
-# }
+# Deploy the Container Insights ConfigMap to gather kube-system:aks-auditd logs from the AKS cluster
+# These will be sent to the ContainerLogV2 table in the Log Analytics Workspace
+resource "kubernetes_manifest" "containerinsights" {
+  manifest = yamldecode(file("../container-azm-ms-agentconfig.yaml"))
+  depends_on = [ azurerm_kubernetes_cluster.this ]
+}
