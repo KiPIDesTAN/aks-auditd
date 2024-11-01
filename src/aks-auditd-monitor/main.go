@@ -4,6 +4,7 @@ import (
 	"os/exec"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/fsnotify/fsnotify"
@@ -71,6 +72,18 @@ func watchLoop(w *fsnotify.Watcher) {
 
 			// We care about create, write, and remove events in the directories we are watching.
 			if event.Op&(fsnotify.Create|fsnotify.Write|fsnotify.Remove) != 0 {
+				// Properly set permissions on the copied over file.
+				if event.Op&(fsnotify.Create|fsnotify.Write) != 0 {
+					log.Info("Setting permissions on file: ", event.Name)
+					err := syscall.Chmod(event.Name, 0640)
+					if err != nil {
+						log.Error(err)
+					}
+					err = syscall.Chown(event.Name, 0, 0)
+					if err != nil {
+						log.Error(err)
+					}
+				}
 				log.Infof("Change detected: %s - %s", event.Op, event.Name)
 				if pauseStartTime.IsZero() {
 					pauseStartTime = time.Now() // Start the "pause" timer.
@@ -101,10 +114,6 @@ func restartAuditd() {
 	restarting = true
 	mu.Unlock()
 
-	// Auditd will not properly restart the audisp-syslog plugin
-	// if the files aren't owned by root:root. Set that here.
-	log.Info("Setting ownership of auditd plugins configs to root ownership.")
-	runCommand("chown", "root:root", "/etc/audit/rules.d/*")
 	log.Info("Restarting auditd service.")
 	cmd := exec.Command("systemctl", "restart", "auditd")
 	if err := cmd.Run(); err != nil {
