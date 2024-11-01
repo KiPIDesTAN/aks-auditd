@@ -103,7 +103,7 @@ func restartAuditd() {
 
 	// Auditd will not properly restart the audisp-syslog plugin
 	// if the files aren't owned by root:root. Set that here.
-	log.Debug("Setting ownership of auditd plugins configs to root ownership.")
+	log.Info("Setting ownership of auditd plugins configs to root ownership.")
 	runCommand("chown", "root:root", "/etc/audit/rules.d/*")
 	log.Info("Restarting auditd service.")
 	cmd := exec.Command("systemctl", "restart", "auditd")
