@@ -45,6 +45,7 @@ spec:
         securityContext:
           runAsUser: 807
           runAsGroup: 808
+          enablePrivilegeEscalation: false
           capabilities:
             drop:
             - ALL

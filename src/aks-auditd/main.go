@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
@@ -44,8 +43,6 @@ type DirectoryPair struct {
 }
 
 func main() {
-	// NOTE: All of this code needs to be refactored at some point. It was written this way to make
-	// it easier to test the code in a container environment.
 
 	// Set default config values
 	viper.SetDefault("pollInterval", "30s")
@@ -112,25 +109,11 @@ func main() {
 			targetDir := pair.TargetDirectory
 			requiresReload, err := compareAndSyncDirectories(sourceDir, targetDir)
 			if err != nil {
-				panic(err)
+				log.Errorf("Error syncing directories: %v", err)
 			}
 
-			if requiresReload {
-				exit, err := Chroot(chrootMount)
-				if err != nil {
-					panic(err)
-				}
-
-				log.Info("Reloading auditd.")
-				runCommand("systemctl", "restart", "auditd")
-				if log.GetLevel() == log.DebugLevel {
-					runCommand("auditctl", "-l")
-				}
-
-				// exit from the chroot
-				if err := exit(); err != nil {
-					panic(err)
-				}
+			if requiresReload { // Reload is handled by the aks-auditd-monitor service
+				log.Debug("Auditd rules/plugins require reload")
 			}
 		}
 		time.Sleep(viper.GetDuration("pollInterval"))
@@ -156,22 +139,6 @@ func Chroot(path string) (func() error, error) {
 		}
 		return unix.Chroot(".")
 	}, nil
-}
-
-// runCommand runs a command and logs the output
-func runCommand(cmd string, args ...string) {
-
-	// Create the command
-	command := exec.Command(cmd, args...)
-
-	// Run the command and capture the output
-	output, err := command.CombinedOutput()
-	if err != nil {
-		log.Error(fmt.Sprintf("Command failed with error: %s  Output: %s", err, string(output)))
-	}
-
-	// Print the output
-	log.Debug(fmt.Print(string(output)))
 }
 
 func compareAndSyncDirectories(sourceDir, targetDir string) (bool, error) {
