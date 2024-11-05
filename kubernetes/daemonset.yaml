@@ -34,18 +34,19 @@ spec:
       containers:
       - name: aks-auditd
         image: ghcr.io/kipidestan/aks-auditd:0.0.5
-        volumeMounts:
-        - name: node
-          mountPath: /node
+        volumeMounts:        
         - name: auditd-rules
           mountPath: /auditd-rules
-        - name: audisp-plugins
-          mountPath: /audisp-plugins
+        - name: auditd-rules-target
+          mountPath: /auditd-rules-target
+        - name: auditd-plugins
+          mountPath: /auditd-plugins
+        - name: auditd-plugins-target
+          mountPath: /auditd-plugins-target
         imagePullPolicy: Always
         securityContext:
           runAsUser: 807
           runAsGroup: 808
-          enablePrivilegeEscalation: false
           capabilities:
             drop:
             - ALL
@@ -56,9 +57,15 @@ spec:
       - name: auditd-rules
         configMap:
           name: auditd-rules
-      - name: audisp-plugins
+      - name: auditd-rules-target
+        hostPath:
+          path: /etc/audit/rules.d
+      - name: auditd-plugins
         configMap:
-          name: audisp-plugins
+          name: auditd-plugins
+      - name: auditd-plugins-target
+        hostPath:
+          path: /etc/audit/plugins.d
     
       
 
