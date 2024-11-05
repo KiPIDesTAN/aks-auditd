@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: audisp-plugins
+  name: auditd-plugins
   namespace: kube-system
   labels:
     name: aks-auditd

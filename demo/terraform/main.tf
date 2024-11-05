@@ -106,8 +106,8 @@ resource "kubernetes_manifest" "auditd-rules" {
 }
 
 # Deploy the auditd-rules ConfigMap to the AKS cluster
-resource "kubernetes_manifest" "audisp-plugins" {
-  manifest = yamldecode(file("../../kubernetes/configmap/audisp-plugins.yaml"))
+resource "kubernetes_manifest" "auditd-plugins" {
+  manifest = yamldecode(file("../../kubernetes/configmap/auditd-plugins.yaml"))
   depends_on = [ azurerm_kubernetes_cluster.this ]
 }
 
