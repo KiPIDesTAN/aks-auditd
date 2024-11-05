@@ -38,7 +38,7 @@ COPY --from=base /etc/aks-auditd /etc/aks-auditd
 
 VOLUME /auditd-rules
 VOLUME /auditd-rules-target
-VOLUME /audisp-plugins
-VOLUME /audisp-plugins-target
+VOLUME /auditd-plugins
+VOLUME /auditd-plugins-target
 
 ENTRYPOINT ["/app/aks-auditd"]

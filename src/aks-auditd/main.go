@@ -36,8 +36,8 @@ const rulesMount = "/auditd-rules"
 // Container mount point where the host audtid plugins.d directory is mounted.
 const chrootPluginsMount = "/auditd-plugins-target"
 
-// Container mount point where the audisp-plugins are stored.
-const pluginsMount = "/audisp-plugins"
+// Container mount point where the auditd-plugins are stored.
+const pluginsMount = "/auditd-plugins"
 
 // Map of source to target directories for copying files
 type DirectoryPair struct {
