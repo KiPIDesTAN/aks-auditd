@@ -20,10 +20,13 @@ var (
 // Time interval to queue up multiple events before restarting auditd in seconds
 const restartDelay = 30 * time.Second
 
-func main() {
-	// Directories to monitor
-	dirs := []string{"/etc/audit/rules.d", "/etc/audit/plugins.d"}
+// auditd rules directory
+const rulesDirectory = "/etc/audit/rules.d"
 
+// auditd plugins directory
+const pluginsDirectory = "/etc/audit/plugins.d"
+
+func main() {
 	// Initialize the watcher
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
@@ -35,7 +38,7 @@ func main() {
 	go watchLoop(watcher)
 
 	// Add the directories to the list of watches.
-	for _, p := range dirs {
+	for _, p := range []string{rulesDirectory, pluginsDirectory} {
 		err = watcher.Add(p)
 		if err != nil {
 			log.Fatalf("%q: %s", p, err)
@@ -70,20 +73,11 @@ func watchLoop(w *fsnotify.Watcher) {
 				return
 			}
 
-			// We care about create, write, and remove events in the directories we are watching.
-			if event.Op&(fsnotify.Create|fsnotify.Write|fsnotify.Remove) != 0 {
-				// Properly set permissions on the copied over file.
-				if event.Op&(fsnotify.Create|fsnotify.Write) != 0 {
-					log.Info("Setting permissions on file: ", event.Name)
-					err := syscall.Chmod(event.Name, 0640)
-					if err != nil {
-						log.Error(err)
-					}
-					err = syscall.Chown(event.Name, 0, 0)
-					if err != nil {
-						log.Error(err)
-					}
-				}
+			// If a change is detected on a rules or a config file, handle the file and queue up an auditd restart.
+			// It is possible for a file ending in .conf in the rules file and vise versa to trigger an auditd restart
+			// with the logic below, but it will not cause any issues.
+			if event.Op&(fsnotify.Create|fsnotify.Write|fsnotify.Remove) != 0 &&
+				(isConfFile(event.Name) || isRulesFile(event.Name)) {
 				log.Infof("Change detected: %s - %s", event.Op, event.Name)
 				if pauseStartTime.IsZero() {
 					pauseStartTime = time.Now() // Start the "pause" timer.
@@ -114,6 +108,21 @@ func restartAuditd() {
 	restarting = true
 	mu.Unlock()
 
+	// Config files in the plugins directory need to be chown root:root or audisp-syslog will silently fail.
+	// Since we only care about syslog.conf, we hardcode the path. Also, we set the permissions to 640 for good measure.
+	// This change is done here instead of when the event fires because some editors (like vim) create a new file and rename it.
+	// This causes the event to fire twice, and incorrect permissions are set.
+	syslogConf := pluginsDirectory + "/syslog.conf"
+	log.Info("Setting permissions on file: ", syslogConf)
+	err := syscall.Chmod(syslogConf, 0640)
+	if err != nil {
+		log.Error(err)
+	}
+	err = syscall.Chown(syslogConf, 0, 0)
+	if err != nil {
+		log.Error(err)
+	}
+
 	log.Info("Restarting auditd service.")
 	cmd := exec.Command("systemctl", "restart", "auditd")
 	if err := cmd.Run(); err != nil {
@@ -127,20 +136,12 @@ func restartAuditd() {
 	mu.Unlock()
 }
 
-// runCommand runs a command and logs the output
-func runCommand(cmd string, args ...string) {
+// isRulesFile returns true if the file ends in .rules, which is a requirement
+// of auditd rules when run through augenrules.
+func isRulesFile(path string) bool {
+	return strings.HasSuffix(path, ".rules")
+}
 
-	// Create the command
-	command := exec.Command(cmd, args...)
-
-	log.Debugf("Running command: %s %s", cmd, strings.Join(args, " "))
-
-	// Run the command and capture the output
-	output, err := command.CombinedOutput()
-	if err != nil {
-		log.Errorf("Command failed with error: %s  Output: %s", err, string(output))
-	}
-
-	// Print the output
-	log.Debugf("Command Output: %s", string(output))
+func isConfFile(path string) bool {
+	return strings.HasSuffix(path, ".conf")
 }
