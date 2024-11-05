@@ -36,8 +36,9 @@ WORKDIR /app
 COPY --from=base /app/aks-auditd .
 COPY --from=base /etc/aks-auditd /etc/aks-auditd
 
-VOLUME /node
 VOLUME /auditd-rules
+VOLUME /auditd-rules-target
 VOLUME /audisp-plugins
+VOLUME /audisp-plugins-target
 
 ENTRYPOINT ["/app/aks-auditd"]

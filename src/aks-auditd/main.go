@@ -27,11 +27,14 @@ var levelMap = map[string]log.Level{
 	"trace": log.TraceLevel,
 }
 
-// Container mount point where the host file system is mounted.
-const chrootMount = "/node"
+// Container mount point where the host auditd rules.d directory is mounted.
+const chrootRulesMount = "/auditd-rules-target"
 
 // Container mount point where auditd rules are stored.
 const rulesMount = "/auditd-rules"
+
+// Container mount point where the host audtid plugins.d directory is mounted.
+const chrootPluginsMount = "/auditd-plugins-target"
 
 // Container mount point where the audisp-plugins are stored.
 const pluginsMount = "/audisp-plugins"
@@ -47,16 +50,12 @@ func main() {
 	// Set default config values
 	viper.SetDefault("pollInterval", "30s")
 	viper.SetDefault("logLevel", "info")
-	viper.SetDefault("rulesDirectory", "/etc/audit/rules.d")
-	viper.SetDefault("pluginsDirectory", "/etc/audit/plugins.d")
 
 	// Environment variable settings
 	// NOTE: When using BindEnv with multiple, SetEnvPrefix does not apply and we must set it explicitly
 	viper.SetEnvPrefix("AA")
 	viper.BindEnv("logLevel", "AA_LOG_LEVEL")
 	viper.BindEnv("pollInterval", "AA_POLL_INTERVAL")
-	viper.BindEnv("rulesDirectory", "AA_RULES_DIR")
-	viper.BindEnv("pluginsDirectory", "AA_PLUGINS_DIR")
 
 	// Set the file name of the configuration file without the extension
 	viper.SetConfigName("config")
@@ -71,9 +70,6 @@ func main() {
 	}
 
 	// Output the configuration settings
-	log.Info("Rules Directory: ", viper.GetString("rulesDirectory"))
-	log.Info("Plugins Directory: ", viper.GetString("pluginsDirectory"))
-
 	duration, err := time.ParseDuration(viper.GetString("pollInterval"))
 	if err != nil {
 		fmt.Println("Error parsing duration:", err)
@@ -96,11 +92,11 @@ func main() {
 		directories := []DirectoryPair{
 			{
 				SourceDirectory: rulesMount,
-				TargetDirectory: chrootMount + viper.GetString("rulesDirectory"),
+				TargetDirectory: chrootRulesMount,
 			},
 			{
 				SourceDirectory: pluginsMount,
-				TargetDirectory: chrootMount + viper.GetString("pluginsDirectory"),
+				TargetDirectory: chrootPluginsMount,
 			},
 		}
 
