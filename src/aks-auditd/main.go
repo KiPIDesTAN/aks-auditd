@@ -85,21 +85,20 @@ func main() {
 	log.Info("Log Level: ", viper.GetString("logLevel"))
 	log.SetLevel(level)
 
+	// Compare and sync the rules and plugins directories
+	directories := []DirectoryPair{
+		{
+			SourceDirectory: rulesMount,
+			TargetDirectory: chrootRulesMount,
+		},
+		{
+			SourceDirectory: pluginsMount,
+			TargetDirectory: chrootPluginsMount,
+		},
+	}
+
 	// Run the main loop
 	for {
-
-		// Compare and sync the rules and plugins directories
-		directories := []DirectoryPair{
-			{
-				SourceDirectory: rulesMount,
-				TargetDirectory: chrootRulesMount,
-			},
-			{
-				SourceDirectory: pluginsMount,
-				TargetDirectory: chrootPluginsMount,
-			},
-		}
-
 		for _, pair := range directories {
 			sourceDir := pair.SourceDirectory
 			targetDir := pair.TargetDirectory
