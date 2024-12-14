@@ -6,7 +6,7 @@ metadata:
   labels:
     name: aks-auditd
 data:
-  audit.rules-check: |
+  10-audit.rules: |
     ## First rule - delete all
     -D
     ## Increase the buffers to survive stress events.

@@ -27,8 +27,8 @@ var levelMap = map[string]log.Level{
 	"trace": log.TraceLevel,
 }
 
-// Container mount point where the host file system is mounted.
-const chrootMount = "/node"
+const chrootMount = "/node"                    // Container mount point where the host file system is mounted.
+const audispdPluginsMount = "/audispd-plugins" // Container mount point where the audispd plugin config is mounted.
 
 // UID of the user the main container will run as - restarting the auditd service and copying config files to the node.
 // Account is created with --system flag, which requires a UID between SYS_UID_MIN and SYS_UID_MAX, defined in /etc/login.defs
@@ -41,19 +41,17 @@ const auditadminsGID = 808
 const aksAuditdMonitorBinaryPath = "/usr/sbin/aks-auditd-monitor"
 const aksAuditdMonitorServicePath = "/etc/systemd/system/aks-auditd-monitor.service"
 
+const hostRulesDirectory = "/etc/audit/rules.d"     // rules directory on the host file system. No trailing slash.
+const hostPluginsDirectory = "/etc/audit/plugins.d" // plugins directory on the host file system. No trailing slash.
+
 func main() {
-	// TODO: Some of these values can be removed here and from the yaml file as we don't use them all.
 	// Set default config values
 	viper.SetDefault("logLevel", "info")
-	viper.SetDefault("rulesDirectory", "/etc/audit/rules.d")
-	viper.SetDefault("pluginsDirectory", "/etc/audit/plugins.d")
 
 	// Environment variable settings
 	// NOTE: When using BindEnv with multiple, SetEnvPrefix does not apply and we must set it explicitly
 	viper.SetEnvPrefix("AA")
 	viper.BindEnv("logLevel", "AA_LOG_LEVEL")
-	viper.BindEnv("rulesDirectory", "AA_RULES_DIR")
-	viper.BindEnv("pluginsDirectory", "AA_PLUGINS_DIR")
 
 	// Set the file name of the configuration file without the extension
 	viper.SetConfigName("config")
@@ -68,8 +66,8 @@ func main() {
 	}
 
 	// Output the configuration settings
-	log.Info("Rules Directory: ", viper.GetString("rulesDirectory"))
-	log.Info("Plugins Directory: ", viper.GetString("pluginsDirectory"))
+	log.Info("Rules Directory: ", hostRulesDirectory)
+	log.Info("Plugins Directory: ", hostPluginsDirectory)
 	log.Info("AKS Auditd UID (system user): ", aksauditdUID)
 
 	level, ok := levelMap[strings.ToLower(viper.GetString("logLevel"))]
@@ -116,17 +114,12 @@ func main() {
 
 	// Change ownership on the rules directory and all subfiles
 	log.Info("Changing rules.d directory permissions.")
-	runCommand("chgrp", "-R", "audit-admins", viper.GetString("rulesDirectory")) // Change the group to audit-admins
-	runCommand("chmod", "-R", "g+rw", viper.GetString("rulesDirectory"))         // Give the group read/write/execute permissions TODO: I might not need execute permissions.
-	runCommand("chmod", "g+s", viper.GetString("rulesDirectory"))                // Set the setgid bit so that new files inherit the group
-	runCommand("rm", "-f", "/etc/audit/rules.d/*")                               // Clear out the rules directory
+	runCommand("chgrp", "-R", "audit-admins", hostRulesDirectory) // Change the group to audit-admins
+	runCommand("chmod", "-R", "g+rw", hostRulesDirectory)         // Give the group read/write/execute permissions TODO: I might not need execute permissions.
+	runCommand("chmod", "g+s", hostRulesDirectory)                // Set the setgid bit so that new files inherit the group
+	runCommand("rm", "-f", hostRulesDirectory+"/*")               // Clear out the rules directory
 
-	// Change ownership on the plugins directory and all subfiles
-	log.Info("Changing plugins.d directory permissions.")
-	runCommand("chgrp", "-R", "audit-admins", viper.GetString("pluginsDirectory")) // Change the group to audit-admins
-	runCommand("chmod", "-R", "g+rw", viper.GetString("pluginsDirectory"))         // Give the group read/write/execute permissions TODO: I might not need execute permissions.
-	runCommand("chmod", "g+s", viper.GetString("pluginsDirectory"))                // Set the setgid bit so that new files inherit the group
-	runCommand("rm", "-f", "/etc/audit/plugins.d/*")                               // Clear out the plugins directory
+	runCommand("rm", "-f", hostPluginsDirectory+"/*") // Clear out the plugins directory. Only use those supplied by the container.
 
 	// Check if the aks-auditd-monitor service is running. If we get an "active" response back, we want to stop the service so our binaries can be updated in later steps.
 	aksMonitorServiceStatus := exec.Command("systemctl", "is-active", "aks-auditd-monitor")
@@ -169,6 +162,20 @@ func main() {
 		log.Error(fmt.Sprintf("Failed to set permissions on file: %s, error: %v", aksMonitorServiceContainerPath, err))
 	}
 	if err := os.Chown(aksMonitorServiceContainerPath, 0, 0); err != nil {
+		log.Error(fmt.Sprintf("Failed to set ownership on file: %s, error: %v", aksMonitorServiceContainerPath, err))
+	}
+
+	// Copy over the syslog.conf file to the host file system and set the appropriate permissions.
+	// auditd is sensitive about the permissions and ownership on this file.
+	pluginsContainerPath := chrootMount + hostPluginsDirectory
+	syslogConfPath := pluginsContainerPath + "/syslog.conf"
+	if err := copyFile(syslogConfPath, pluginsContainerPath); err != nil {
+		log.Error(fmt.Sprintf("Failed to copy file: %s to %s, error: %v", syslogConfPath, aksMonitorServiceContainerPath, err))
+	}
+	if err := os.Chmod(syslogConfPath, 0600); err != nil {
+		log.Error(fmt.Sprintf("Failed to set permissions on file: %s, error: %v", aksMonitorServiceContainerPath, err))
+	}
+	if err := os.Chown(syslogConfPath, 0, 0); err != nil {
 		log.Error(fmt.Sprintf("Failed to set ownership on file: %s, error: %v", aksMonitorServiceContainerPath, err))
 	}
 

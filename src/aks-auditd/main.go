@@ -33,12 +33,6 @@ const chrootRulesMount = "/auditd-rules-target"
 // Container mount point where auditd rules are stored.
 const rulesMount = "/auditd-rules"
 
-// Container mount point where the host audtid plugins.d directory is mounted.
-const chrootPluginsMount = "/auditd-plugins-target"
-
-// Container mount point where the auditd-plugins are stored.
-const pluginsMount = "/auditd-plugins"
-
 // Map of source to target directories for copying files
 type DirectoryPair struct {
 	SourceDirectory string
@@ -56,18 +50,6 @@ func main() {
 	viper.SetEnvPrefix("AA")
 	viper.BindEnv("logLevel", "AA_LOG_LEVEL")
 	viper.BindEnv("pollInterval", "AA_POLL_INTERVAL")
-
-	// Set the file name of the configuration file without the extension
-	viper.SetConfigName("config")
-	viper.AddConfigPath("/etc/aks-auditd")
-	viper.SetConfigType("yaml")
-	if err := viper.ReadInConfig(); err != nil {
-		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
-			log.Debug("Config file not found. Using default values.")
-		} else {
-			log.Fatalf("Error reading config file: %v", err)
-		}
-	}
 
 	// Output the configuration settings
 	duration, err := time.ParseDuration(viper.GetString("pollInterval"))
@@ -90,10 +72,6 @@ func main() {
 		{
 			SourceDirectory: rulesMount,
 			TargetDirectory: chrootRulesMount,
-		},
-		{
-			SourceDirectory: pluginsMount,
-			TargetDirectory: chrootPluginsMount,
 		},
 	}
 

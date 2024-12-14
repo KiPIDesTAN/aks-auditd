@@ -4,7 +4,6 @@ import (
 	"os/exec"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
 
 	"github.com/fsnotify/fsnotify"
@@ -23,9 +22,6 @@ const restartDelay = 30 * time.Second
 // auditd rules directory
 const rulesDirectory = "/etc/audit/rules.d"
 
-// auditd plugins directory
-const pluginsDirectory = "/etc/audit/plugins.d"
-
 func main() {
 	// Initialize the watcher
 	watcher, err := fsnotify.NewWatcher()
@@ -38,7 +34,7 @@ func main() {
 	go watchLoop(watcher)
 
 	// Add the directories to the list of watches.
-	for _, p := range []string{rulesDirectory, pluginsDirectory} {
+	for _, p := range []string{rulesDirectory} {
 		err = watcher.Add(p)
 		if err != nil {
 			log.Fatalf("%q: %s", p, err)
@@ -77,7 +73,7 @@ func watchLoop(w *fsnotify.Watcher) {
 			// It is possible for a file ending in .conf in the rules file and vise versa to trigger an auditd restart
 			// with the logic below, but it will not cause any issues.
 			if event.Op&(fsnotify.Create|fsnotify.Write|fsnotify.Remove) != 0 &&
-				(isConfFile(event.Name) || isRulesFile(event.Name)) {
+				(isRulesFile(event.Name)) {
 				log.Infof("Change detected: %s - %s", event.Op, event.Name)
 				if pauseStartTime.IsZero() {
 					pauseStartTime = time.Now() // Start the "pause" timer.
@@ -108,21 +104,6 @@ func restartAuditd() {
 	restarting = true
 	mu.Unlock()
 
-	// Config files in the plugins directory need to be chown root:root or audisp-syslog will silently fail.
-	// Since we only care about syslog.conf, we hardcode the path. Also, we set the permissions to 640 for good measure.
-	// This change is done here instead of when the event fires because some editors (like vim) create a new file and rename it.
-	// This causes the event to fire twice, and incorrect permissions are set.
-	syslogConf := pluginsDirectory + "/syslog.conf"
-	log.Info("Setting permissions on file: ", syslogConf)
-	err := syscall.Chmod(syslogConf, 0640)
-	if err != nil {
-		log.Error(err)
-	}
-	err = syscall.Chown(syslogConf, 0, 0)
-	if err != nil {
-		log.Error(err)
-	}
-
 	log.Info("Restarting auditd service.")
 	cmd := exec.Command("systemctl", "restart", "auditd")
 	if err := cmd.Run(); err != nil {
@@ -140,8 +121,4 @@ func restartAuditd() {
 // of auditd rules when run through augenrules.
 func isRulesFile(path string) bool {
 	return strings.HasSuffix(path, ".rules")
-}
-
-func isConfFile(path string) bool {
-	return strings.HasSuffix(path, ".conf")
 }

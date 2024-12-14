@@ -14,13 +14,15 @@ spec:
       labels:
         name: aks-auditd
     spec:
-      hostPID: true   # This is required because of the systemctl command in aks-auditd-init. The container needs access to the host PID namespace to restart the auditd service. I may try to package the aks-auditd-monitor in a deb package to get around this in the future.
+      hostPID: true   # This is required because of the systemctl command in aks-auditd-init. The container needs access to the host PID namespace to restart the aks-auditd-monitor service. I may try to package the aks-auditd-monitor in a deb package to get around this in the future.
       initContainers:
       - name: init
-        image: ghcr.io/kipidestan/aks-auditd-init:0.0.5
+        image: ghcr.io/kipidestan/aks-auditd-init:0.0.6
         volumeMounts:
         - name: node
           mountPath: /node
+        - name: audispd-plugins
+          mountPath: /audispd-plugins
         imagePullPolicy: Always
         securityContext:
           privileged: true
@@ -33,16 +35,12 @@ spec:
             - SYS_CHROOT
       containers:
       - name: aks-auditd
-        image: ghcr.io/kipidestan/aks-auditd:0.0.5
+        image: ghcr.io/kipidestan/aks-auditd:0.0.6
         volumeMounts:        
         - name: auditd-rules
           mountPath: /auditd-rules
         - name: auditd-rules-target
           mountPath: /auditd-rules-target
-        - name: auditd-plugins
-          mountPath: /auditd-plugins
-        - name: auditd-plugins-target
-          mountPath: /auditd-plugins-target
         imagePullPolicy: Always
         securityContext:
           runAsUser: 807
@@ -60,14 +58,7 @@ spec:
       - name: auditd-rules-target
         hostPath:
           path: /etc/audit/rules.d
-      - name: auditd-plugins
+      - name: audispd-plugins
         configMap:
-          name: auditd-plugins
-      - name: auditd-plugins-target
-        hostPath:
-          path: /etc/audit/plugins.d
-    
-      
-
-  
+          name: audispd-plugins
 
