@@ -4,9 +4,9 @@ __NOTE:__ This repository was originally forked from the [Azure aks-auditd](http
 
 Linux auditd is a userspace component responsible for monitoring and logging system calls and events for security auditing purposes. It tracks file access, user activity, and changes to system configurations, providing detailed logs to help administrators monitor and review actions on the system. auditd is often used to ensure compliance with security policies and to investigate suspicious behavior or breaches. 
 
-aks-auditd is an implementation of auditd for [Azure Kuberentes Service](https://learn.microsoft.com/en-us/azure/aks/what-is-aks) worker nodes. It runs as a Daemonset to deploy auditd and audispd-plugins to the node whenever a new node is created. The auditd service collects audit information and sends it to the node's syslog implementation. AKS relies on the the deployment of the [Container Insights add-on](https://learn.microsoft.com/en-us/azure/azure-monitor/containers/kubernetes-monitoring-enable?tabs=cli#enable-container-insights) within the cluster and a Container Insights data collection rule configured to [collect Syslog data](https://learn.microsoft.com/en-us/azure/azure-monitor/containers/container-insights-syslog). Once collected, the data arrives in the Log Analytics Workspace's Syslog table.
+aks-auditd is an implementation of auditd for [Azure Kuberentes Service](https://learn.microsoft.com/en-us/azure/aks/what-is-aks) worker nodes. It runs as a DaemonSet to deploy auditd, audispd-plugins, and a utility application to the node whenever a new node is created in a pool. The auditd service collects audit information and sends it to the node's syslog implementation. AKS relies on the the deployment of the [Container Insights add-on](https://learn.microsoft.com/en-us/azure/azure-monitor/containers/kubernetes-monitoring-enable?tabs=cli#enable-container-insights) within the cluster and a Container Insights data collection rule configured to [collect Syslog data](https://learn.microsoft.com/en-us/azure/azure-monitor/containers/container-insights-syslog). Once collected, the data arrives in the Log Analytics Workspace's Syslog table.
 
-A deployable end-to-end demo is available in the [demo](./demo/README.md) folder. This should be the first place you look to understand how the solution works.
+*A deployable end-to-end demo is available* in the [demo](./demo/README.md) folder. This should be the first place you look to understand how the solution works.
 
 ## Pre-built Container Image
 
@@ -23,7 +23,7 @@ If you need to review changes for a specific container, look at the git tag asso
 
 ### Image Verification
 
-Published images are signed with [cosign](https://github.com/sigstore/cosign) keyless signing and a Software Bill of Materials.
+Published images are signed with [cosign](https://github.com/sigstore/cosign) keyless signing and a Software Bill of Materials (SBOM).
 
 #### Cosign Verification
 
@@ -49,6 +49,8 @@ docker sbom aks-auditd:latest
 NOTE: There are two images involved in this deployment. You will want to check both images.
 
 ## Build and Deploy
+
+This repo comes with a GitHub action to build and push the aks-auditd containers. Please, review it and use the information below to enhance your understanding of the build process.
 
 The build process utilizes a multi-stage build, pulling the Azure Linux core image, compiling the Go binary, and copying the required artifacts to the Azure Linux Distroless minimal image of the same version. View Dockerfiles in the root directory of the project to understand the implementation.
 
@@ -100,17 +102,14 @@ The following values can be configured via environment variable or ConfigMap. Th
 | Item |  Environment Variable | Config File Value | Default | Notes |
 |---|---|---|---|--|
 | Log Level |  AA_LOG_LEVEL | logLevel | 'info' | Valid values: panic, fatal, error, warn, info, debug, trace |
-| Poll Interval | AA_POLL_INTERVAL | pollInterval | 30s | Interval to poll for rule/config file changes. Value must meet [ParseDuration](https://pkg.go.dev/time#ParseDuration) format requirements. e.g. 30s, 20m, 1h |
-| Rules Directory | AA_RULES_DIR | rulesDirectory | /etc/audit/rules.d | Worker node directory where auditd rules exist. |
-| Plugins Directory | AA_PLUGINS_DIR | pluginsDirectory | /etc/audit/plugins.d | Worker directory node where auditispd-plugins exist. |
 
 ### Configuration via ConfigMap
 
 An example of the config.yaml ConfigMap to configure the Go binary is below or [here](./config.yaml). Once you've created your own ConfigMap, you will want to apply it on the container to "/etc/aks-auditd/config.yaml" as part of your [daemonset.yaml](./kubernetes/daemonset.yaml) deployment.
 
-## GO Code Style
+## Golang Code Style
 
-The code that managing the deployment and execution is fundamentally a series of shell scripts, but written in [Go](https://go.dev/). The Go code is written in a style close to a shell script with the intent of making it readable. It is more important to me that an end-user understands what the code does, regardless of their Go expertise, than writing heavily abstracted code.
+The code managing the deployment and execution is fundamentally a series of shell and kernel commands, but written in [Go](https://go.dev/). The code is written sequentially, like a shell script, with the intent of making it readable. It is more important to me that an end-user understands what the code does, regardless of their Go expertise, than writing heavily abstracted code.
 
 ## Sequence Diagrams
 
@@ -142,9 +141,9 @@ sequenceDiagram
   participant auditd as auditd service
 
   loop User Defined Interval
-      aksauditdrun->>aksauditdrun: Check for updated rules/configs
+      aksauditdrun->>aksauditdrun: Check for updated rules
     opt File Changed
-      aksauditdrun->>workernode: Copy updated rules/configs
+      aksauditdrun->>workernode: Copy updated rules
       workernode->>aksauditdmonitor: Node kernel triggers file change event
       aksauditdmonitor->>auditd: Restart Service
     end 
@@ -168,10 +167,6 @@ flowchart LR
 
 ## FAQ
 
-### How do rules and configurations on the worker node get updated?
-
-At the set poll interval, the Go binary calculates a sha256 hash against the files in /auditd-rules and /audisp-plugins container volumes. These files are created and updates as ConfigMaps. We then calculate the sha256 hash of the files in the target directory. If there are any differences - new files, deleted files, or checksum mismatches - the _target directories are emptied_ and the files mounted in the container volume are copied over.
-
 ### Where do I find the audit data in the Log Analytics Workspace?
 
 By default, the auditd data is sent to the LAW's Syslog table as part of the audisp-syslog process. The default facility is user.
@@ -189,8 +184,9 @@ Open the [audisp-plugins.yaml](./kubernetes/configmap/audisp-plugins.yaml) file 
 
 ### How do I debug my deployment?
 
-Coming soon...
+To debug your deployment, you'll want to start a debug busy box on one of your nodes to review the aks-auditd-monitor service logs, which are available in journalctl.
 
+You should also review the logs associated with the aks-auditd-init and aks-auditd containers in their respective PODs.
 
 ### What changes occurred between the original Azure implementation and this one?
 
@@ -202,9 +198,8 @@ Below are key differences between [Azure aks-auditd](https://github.com/Azure/ak
 |---|---|---|---|
 | Base Image | [Alpine Linux](https://hub.docker.com/_/alpine) | [Azure Distroless Minimal](https://mcr.microsoft.com/en-us/product/azurelinux/distroless/minimal/about) | Azure distroless is a hardended, official Azure distro for containers. |
 | Implementation | Shell Scripts | Go binary | Go static linking allows for a smaller attack surface. |
-| Configurability | Minimal | [See Configuration](config.yaml) | Azure aks-auditd commands did not work with latest 
 | Agent Reliance | Legacy OMS on VMSS | Container Insights deployed as POD | CI is the updated method to deliver log data to a Log Analytics Workspace. Agent runs as a Daemonset. Not on the VMSS. |
 
-Another note is that this aks-auditd binary supports a two stage execution process. Review the [daemonset.yaml](./kubernetes/daemonset.yaml). The binary supports --mode init, which runs as an initial container, deploying the auditd service, and --mode poll, which runs as the normal process to restart the auditd service when updates from the ConfigMap configurations are applied.
+Another note is that this aks-auditd binary supports an init container. The init container runs as root, which is required to deploy auditd and do some initial configurations. This container exists and aks-auditd runs on a consistent basis, looking for changes to the rule files, which are defined as a ConfigMap.
 
-What happens is that the init mode can run at elevated privileges to deploy software, add a user, give that user sudo rights to restart the auditd service, and the poll mode can restart the service as needed without the need to run as root.
+In an ideal world, DaemonSets would have a one time container run that would allow software to be deployed and then just quit. However, that's not the case and this is the only way I've found to get auditd deployed and operational.
